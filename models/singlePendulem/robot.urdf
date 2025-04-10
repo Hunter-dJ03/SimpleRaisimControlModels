@@ -1,0 +1,62 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/3ebbb10823be46a55188b1ff/w/2488f47398571f659f3fde55/e/73a4e198e6d5735ec5400b84 -->
+<robot name="singlePendulem">
+  <!-- Link base -->
+  <link name="base">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <!-- Part base -->
+    <visual>
+      <origin xyz="0 0 -2.1684e-19" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://robot_description/assets/base.stl"/>
+      </geometry>
+      <material name="base_material">
+        <color rgba="0.615686 0.811765 0.929412 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -2.1684e-19" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://robot_description/assets/base.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link link1 -->
+  <link name="link1">
+    <inertial>
+      <origin xyz="-1.45267e-18 -0.0517566 -0.005" rpy="0 0 0"/>
+      <mass value="0.0608088"/>
+      <inertia ixx="6.55015e-05" ixy="2.10313e-22" ixz="0" iyy="2.52035e-06" iyz="0" izz="6.70084e-05"/>
+    </inertial>
+    <!-- Part link1 -->
+    <visual>
+      <origin xyz="0 -3.06162e-19 -0.022" rpy="-1.5708 -0 4.60712e-18"/>
+      <geometry>
+        <mesh filename="package://robot_description/assets/link1.stl"/>
+      </geometry>
+      <material name="link1_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -3.06162e-19 -0.022" rpy="-1.5708 -0 4.60712e-18"/>
+      <geometry>
+        <mesh filename="package://robot_description/assets/link1.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from base to link1 -->
+  <joint name="joint1" type="continuous">
+    <origin xyz="-3.97698e-18 -0.022 8.46965e-18" rpy="1.5708 -0.187535 0"/>
+    <parent link="base"/>
+    <child link="link1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="1000" velocity="600"/>
+    <joint_properties friction="0.5"/>
+  </joint>
+</robot>

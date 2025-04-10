@@ -1,32 +1,15 @@
 cmake_minimum_required(VERSION 3.8)
-project(robot_simulation)
+project(double_pendulum_description)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # find dependencies
-
-
-# Standard ROS2 stuffs
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(std_msgs REQUIRED)
-
-# Raimsim stuffs
-set(CMAKE_PREFIX_PATH "/home/hunter/Documents/github/importedRepos/raisimLib/raisim/linux")
-find_package(Eigen3 REQUIRED)
-find_package(PythonLibs 3.10 REQUIRED)  # Change Python version as needed
-include_directories(
-    ${EIGEN3_INCLUDE_DIRS}
-    ${PYTHON_INCLUDE_DIRS}
-)
-find_package(raisim REQUIRED)
-
-
-add_executable(raisim_bridge src/raisim_bridge.cpp)
-ament_target_dependencies(raisim_bridge rclcpp sensor_msgs std_msgs Eigen3 raisim PythonLibs)
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -40,13 +23,16 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# Install
-install(TARGETS
-  raisim_bridge
-  DESTINATION lib/${PROJECT_NAME}
-) 
 
-install(DIRECTORY launch
+install(DIRECTORY urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
+install(DIRECTORY meshes
+  DESTINATION share/${PROJECT_NAME}/mesh
+)
+
+install(DIRECTORY meshes
   DESTINATION share/${PROJECT_NAME}
 )
 

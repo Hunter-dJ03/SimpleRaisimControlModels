@@ -5,7 +5,7 @@ from launch.actions import DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    robot_description_path = get_package_share_directory("robot_description")
+    robot_description_path = get_package_share_directory("double_pendulum_description")
     
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -15,7 +15,7 @@ def generate_launch_description():
         ),
         
         Node(
-            package='robot_simulation',
+            package='double_pendulum_simulation',
             executable='raisim_bridge',
             name='raisim_bridge',
             output='screen',

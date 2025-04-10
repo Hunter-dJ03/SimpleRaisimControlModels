@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(robot_description)
+project(single_pendulum_description)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -30,6 +30,11 @@ install(DIRECTORY urdf
 
 install(DIRECTORY meshes
   DESTINATION share/${PROJECT_NAME}/mesh
+)
+
+
+install(DIRECTORY meshes
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()

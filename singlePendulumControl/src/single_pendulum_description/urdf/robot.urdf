@@ -68,7 +68,7 @@ https://cad.onshape.com/documents/3ebbb10823be46a55188b1ff/w/2488f47398571f659f3
     <axis xyz="0 0 1" />
     <limit effort="1000" velocity="600" />
     <!-- <joint_properties friction="0.05" /> -->
-     <dynamics damping="0.002" friction="100"/>
+     <!-- <dynamics damping="0.00011" friction="100"/> -->
      
   </joint>
 </robot>

@@ -10,7 +10,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             "time_step_ms",
-            default_value="10",
+            default_value="0.1",
             description="Simulation time step in milliseconds"
         ),
         

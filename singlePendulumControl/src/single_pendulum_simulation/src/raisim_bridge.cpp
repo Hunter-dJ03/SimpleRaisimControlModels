@@ -15,7 +15,7 @@ class RaisimBridge : public rclcpp::Node
 public:
   RaisimBridge() : Node("raisim_bridge")
   {
-    int time_step_ms = this->declare_parameter<int>("time_step_ms", 1);
+    float time_step_ms = this->declare_parameter<float>("time_step_ms", 1);
 
     world.setTimeStep(time_step_ms / 1000.0f);
     auto ground = world.addGround(-2);
@@ -63,7 +63,7 @@ public:
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(time_step_ms),
+        std::chrono::microseconds((int)(time_step_ms*1000)),
         std::bind(&RaisimBridge::update, this));
 
     server.launchServer(8080);
@@ -104,6 +104,8 @@ private:
   {
     // world.integrate();
     server.integrateWorldThreadSafe();
+
+    RCLCPP_INFO(this->get_logger(), "Energy: %f", robot->getEnergy(Eigen::Vector3d(0, 0, -9.81)));
 
     // sensor_msgs::msg::JointState js;
     // js.header.stamp = now();

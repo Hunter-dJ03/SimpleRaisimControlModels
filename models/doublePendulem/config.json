@@ -2,21 +2,11 @@
     "url": "https://cad.onshape.com/documents/3ebbb10823be46a55188b1ff/w/2488f47398571f659f3fde55/e/50a5d975662b86366b46b910",
     "output_format": "urdf",
 
-    "set_zero_mass_to_fixed": true,
-
     "joint_properties": {
         "default": {
             "max_effort": 1000.0,
             "max_velocity": 600.0,
             "friction": 0.5
-        },
-
-        "joint1": {
-            "type": "continuous"
-        },
-
-        "joint2": {
-            "type": "continuous"
         }
     }
 

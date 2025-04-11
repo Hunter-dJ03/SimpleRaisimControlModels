@@ -5,9 +5,9 @@
   <!-- Link base -->
   <link name="base">
     <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <mass value="0"/>
-      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+      <origin xyz="-1.15939e-17 -0.0302136 1.87906e-17" rpy="0 0 0"/>
+      <mass value="13.5218"/>
+      <inertia ixx="0.0990454" ixy="0" ixz="0" iyy="0.185202" iyz="0" izz="0.0990454"/>
     </inertial>
     <!-- Part base -->
     <visual>
@@ -29,13 +29,13 @@
   <!-- Link link1 -->
   <link name="link1">
     <inertial>
-      <origin xyz="-2.29364e-17 -0.788918 -0.0234433" rpy="0 0 0"/>
-      <mass value="131.03"/>
-      <inertia ixx="30.0942" ixy="5.11625e-16" ixz="0" iyy="0.463331" iyz="0.145044" izz="30.4804"/>
+      <origin xyz="-1.32046e-17 -0.637977 -0.0231011" rpy="0 0 0"/>
+      <mass value="37.1262"/>
+      <inertia ixx="5.71829" ixy="1.47509e-16" ixz="1.07742e-60" iyy="0.131211" iyz="0.0396211" izz="5.82631"/>
     </inertial>
     <!-- Part link1 -->
     <visual>
-      <origin xyz="0 -3.06162e-18 -0.11" rpy="-1.5708 -0 0"/>
+      <origin xyz="4.49945e-74 -3.06162e-18 -0.11" rpy="-1.5708 3.19605e-84 -7.81881e-72"/>
       <geometry>
         <mesh filename="package://assets/link1.stl"/>
       </geometry>
@@ -44,7 +44,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 -3.06162e-18 -0.11" rpy="-1.5708 -0 0"/>
+      <origin xyz="4.49945e-74 -3.06162e-18 -0.11" rpy="-1.5708 3.19605e-84 -7.81881e-72"/>
       <geometry>
         <mesh filename="package://assets/link1.stl"/>
       </geometry>
@@ -53,13 +53,13 @@
   <!-- Link link2 -->
   <link name="link2">
     <inertial>
-      <origin xyz="-1.64499e-16 -0.768205 -0.025" rpy="0 0 0"/>
-      <mass value="127.322"/>
-      <inertia ixx="28.15" ixy="2.1371e-16" ixz="0" iyy="0.448999" iyz="0" izz="28.5459"/>
+      <origin xyz="3.82554e-20 -0.417115 -0.025" rpy="0 0 0"/>
+      <mass value="24.9644"/>
+      <inertia ixx="1.82621" ixy="-1.83512e-93" ixz="-5.91621e-116" iyy="0.0877481" iyz="2.77743e-209" izz="1.90356"/>
     </inertial>
     <!-- Part link2 -->
     <visual>
-      <origin xyz="0 1.5 -0.17" rpy="-1.5708 -0 0"/>
+      <origin xyz="0 1.2 -0.17" rpy="-1.5708 1.58621e-116 -9.58807e-94"/>
       <geometry>
         <mesh filename="package://assets/link2.stl"/>
       </geometry>
@@ -68,28 +68,28 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="0 1.5 -0.17" rpy="-1.5708 -0 0"/>
+      <origin xyz="0 1.2 -0.17" rpy="-1.5708 1.58621e-116 -9.58807e-94"/>
       <geometry>
         <mesh filename="package://assets/link2.stl"/>
       </geometry>
     </collision>
   </link>
   <!-- Joint from link1 to link2 -->
-  <joint name="joint2" type="continuous">
-    <origin xyz="0 -1.5 0.06" rpy="0 -0 0"/>
+  <joint name="joint2" type="revolute">
+    <origin xyz="-1.25577e-33 -1.2 0.06" rpy="-2.17473e-28 2.02733e-28 2.93926e-56"/>
     <parent link="link1"/>
     <child link="link2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="600"/>
+    <limit effort="1000" velocity="600" lower="-62.8319" upper="62.8319"/>
     <joint_properties friction="0.5"/>
   </joint>
   <!-- Joint from base to link1 -->
-  <joint name="joint1" type="continuous">
-    <origin xyz="0 -0.11 3.06162e-18" rpy="1.5708 -0 0"/>
+  <joint name="joint1" type="revolute">
+    <origin xyz="2.23006e-29 -0.11 3.06162e-18" rpy="1.5708 -1.46963e-56 -2.02733e-28"/>
     <parent link="base"/>
     <child link="link1"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="600"/>
+    <limit effort="1000" velocity="600" lower="-62.8319" upper="62.8319"/>
     <joint_properties friction="0.5"/>
   </joint>
 </robot>

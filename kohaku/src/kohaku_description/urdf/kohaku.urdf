@@ -1,0 +1,253 @@
+<?xml version="1.0" ?>
+<robot name="hr4c">
+  <material name="silver_default">
+    <color rgba="0.700 0.700 0.700 1.000"/>
+  </material>
+  <material name="_">
+    <color rgba="0.9607843137254902 0.9607843137254902 0.9647058823529412 1.0"/>
+  </material>
+  <link name="world"/>
+  <joint name="world_to_base_link" type="fixed">
+    <parent link="world"/>
+    <child link="base_link"/>
+  </joint>
+  <link name="base_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.12 0.0 0.06"/>
+      <mass value="10.0"/>
+      <inertia ixx="0.101" ixy="0.0" ixz="0.0" iyy="0.194" iyz="0.0" izz="0.2148"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.13 0 0.058"/>
+      <geometry>
+        <box size="0.43 0.27 0.08"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.053 0 0.168"/>
+      <geometry>
+        <box size="0.275 0.27 0.14"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.065 0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.065 -0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.330 0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.330 -0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.13 0 0.058"/>
+      <geometry>
+        <box size="0.43 0.27 0.08"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.053 0 0.168"/>
+      <geometry>
+        <box size="0.275 0.27 0.14"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.065 0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.065 -0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.330 0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="-0.330 -0.12 0.009"/>
+      <geometry>
+        <cylinder length="0.018" radius="0.0155"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="shoulder_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.0002483716377100001 0.002599957397357383 0.07656293547299953"/>
+      <mass value="4.599230696027372"/>
+      <inertia ixx="0.018029" ixy="3.5e-05" ixz="2.8e-05" iyy="0.017921" iyz="0.000417" izz="0.01062"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.015 -0.165 -0.360019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_shoulder_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.015 -0.165 -0.360019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_shoulder_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="upperarm_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="5.075907070683193e-05 0.0055551687418621265 0.06093355009099832"/>
+      <mass value="1.6464184320412805"/>
+      <inertia ixx="0.012435" ixy="2e-06" ixz="5e-06" iyy="0.01254" iyz="-0.000385" izz="0.000862"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.015 -0.16498 -0.502019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_upperarm_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.015 -0.16498 -0.502019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_upperarm_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="forearm_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.0028629714869261927 -0.0029849490325699057 0.0665229146241868"/>
+      <mass value="0.5147558278242914"/>
+      <inertia ixx="0.001435" ixy="1e-06" ixz="-4.1e-05" iyy="0.001418" iyz="-5.7e-05" izz="0.000194"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.015 -0.164945 -0.752019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_forearm_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.015 -0.164945 -0.752019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_forearm_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="wrist_yaw_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="-0.0012123899494678285 0.00799629493788756 0.05493382214308451"/>
+      <mass value="1.0197481013710548"/>
+      <inertia ixx="0.001319" ixy="7e-06" ixz="2.4e-05" iyy="0.001172" iyz="-0.000192" izz="0.000585"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.015 -0.164874 -0.902019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_wrist_yaw_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.015 -0.164874 -0.902019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_wrist_yaw_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="wrist_pitch_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="4.65267917359076e-05 0.0005212096653225973 0.03002034855665814"/>
+      <mass value="0.3895986537799301"/>
+      <inertia ixx="0.000199" ixy="-0.0" ixz="1e-06" iyy="0.000188" iyz="-6e-06" izz="0.000103"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.015 -0.16486 -1.002019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_wrist_pitch_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+      <material name="_"/>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0.015 -0.16486 -1.002019"/>
+      <geometry>
+        <mesh filename="package://hr4c_description/meshes/left_wrist_pitch_link_1.stl" scale="0.001 0.001 0.001"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="hand_palm_link">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.000199" ixy="-0.0" ixz="1e-06" iyy="0.000188" iyz="-6e-06" izz="0.000103"/>
+    </inertial>
+  </link>
+  <joint name="shoulder_yaw" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 0.0 0.238"/>
+    <parent link="base_link"/>
+    <child link="shoulder_link"/>
+    <axis xyz="0.0 -0.00014 1.0"/>
+    <limit effort="100.0" lower="-2.7979" upper="2.7979" velocity="100.0"/>
+  </joint>
+  <joint name="shoulder_pitch" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 -2e-05 0.142"/>
+    <parent link="shoulder_link"/>
+    <child link="upperarm_link"/>
+    <axis xyz="-0.0 1.0 0.00014"/>
+    <limit effort="100.0" lower="-0.785" upper="2.35619" velocity="100.0"/>
+  </joint>
+  <joint name="elbow_pitch" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 -3.5e-05 0.25"/>
+    <parent link="upperarm_link"/>
+    <child link="forearm_link"/>
+    <axis xyz="-0.0 1.0 0.00014"/>
+    <limit effort="100.0" lower="0.436" upper="2.705" velocity="100.0"/>
+  </joint>
+  <joint name="wrist_yaw" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 -7.1e-05 0.15"/>
+    <parent link="forearm_link"/>
+    <child link="wrist_yaw_link"/>
+    <axis xyz="0.0 -0.00014 1.0"/>
+    <limit effort="100.0" lower="-2.094" upper="2.094" velocity="100.0"/>
+  </joint>
+  <joint name="wrist_pitch" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 -1.4e-05 0.1"/>
+    <parent link="wrist_yaw_link"/>
+    <child link="wrist_pitch_link"/>
+    <axis xyz="-0.0 1.0 0.00014"/>
+    <limit effort="100.0" lower="-1.57" upper="1.57" velocity="100.0"/>
+  </joint>
+  <joint name="hand_yaw" type="revolute">
+    <origin rpy="0 0 0" xyz="0.0 -9e-06 0.065"/>
+    <parent link="wrist_pitch_link"/>
+    <child link="hand_palm_link"/>
+    <axis xyz="-0.0 -0.00014 1.0"/>
+    <limit effort="100.0" lower="-2.967" upper="2.967" velocity="100.0"/>
+  </joint>
+  <gazebo>
+    <plugin filename="libgazebo_ros_control.so" name="gazebo_ros_control">
+      <robotNamespace>/</robotNamespace>
+    </plugin>
+  </gazebo>
+</robot>

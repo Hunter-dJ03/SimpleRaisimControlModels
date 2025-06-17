@@ -15,7 +15,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
 # Raimsim stuffs
-set(CMAKE_PREFIX_PATH "/home/hunter/Documents/github/importedRepos/raisimLib/raisim/linux")
+set(CMAKE_PREFIX_PATH "$ENV{HOME}/Documents/github/importedRepos/raisimLib/raisim/linux")
 find_package(Eigen3 REQUIRED)
 find_package(PythonLibs 3.10 REQUIRED)  # Change Python version as needed
 include_directories(

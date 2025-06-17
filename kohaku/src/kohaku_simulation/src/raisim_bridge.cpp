@@ -29,7 +29,7 @@ public:
     // world.setGravity(Eigen::Vector3d(0, 0, -9.81));
 
     // Raisim Activation Key
-    raisim::World::setActivationKey("/home/hunter/.raisim");
+    raisim::World::setActivationKey("$ENV{HOME}/.raisim");
 
     // Get robot URDF file path from description package
     std::string urdf_path_base = this->declare_parameter<std::string>("robot_description_path", "/default/path");

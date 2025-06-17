@@ -29,7 +29,7 @@ public:
     // world.setGravity(Eigen::Vector3d(0, 0, -9.81));
 
     // Raisim Activation Key
-    raisim::World::setActivationKey("/home/hunter/.raisim");
+    raisim::World::setActivationKey("$ENV{HOME}/.raisim");
 
     // Get robot URDF file path from description package
     std::string urdf_path_base = this->declare_parameter<std::string>("robot_description_path", "/default/path");
@@ -52,7 +52,6 @@ public:
     // Setup parameter sizes for generalised position, velocity, acceleration, force and damping and set to zero
     gc = Eigen::VectorXd::Zero(robot->getGeneralizedCoordinateDim());
     gv = Eigen::VectorXd::Zero(robot->getDOF());
-    ga = Eigen::VectorXd::Zero(robot->getDOF());
     gf = Eigen::VectorXd::Zero(robot->getDOF());
     damping = Eigen::VectorXd::Zero(robot->getDOF());
 
@@ -142,7 +141,6 @@ private:
     // Update internal state vectors
     gc = robot->getGeneralizedCoordinate().e();
     gv = robot->getGeneralizedVelocity().e();
-    ga = robot->getGeneralizedAcceleration().e();
 
     // Setup the joinstate message
     sensor_msgs::msg::JointState js;
@@ -229,7 +227,7 @@ private:
 
   rclcpp::TimerBase::SharedPtr timer_;
 
-  Eigen::VectorXd gc, gv, ga, gf, damping;
+  Eigen::VectorXd gc, gv, gf, damping;
 
   std::chrono::_V2::system_clock::time_point startTime;
 

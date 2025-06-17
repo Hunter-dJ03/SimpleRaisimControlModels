@@ -22,8 +22,8 @@ public:
 
     world.setGravity(Eigen::Vector3d(0, 0, -9.81));
 
-    // raisim::World::setLicenseDirectory("/home/hunter/.raisim");
-    raisim::World::setActivationKey("/home/hunter/.raisim");
+    // raisim::World::setLicenseDirectory("$ENV{HOME}/.raisim");
+    raisim::World::setActivationKey("$ENV{HOME}/.raisim");
 
     std::string urdf_path_base = this->declare_parameter<std::string>("robot_description_path", "/default/path");
 

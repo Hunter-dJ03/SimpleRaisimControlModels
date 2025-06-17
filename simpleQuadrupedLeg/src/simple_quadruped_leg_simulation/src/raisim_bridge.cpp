@@ -41,9 +41,9 @@ public:
     
 
     // Remove Collision Meshes
-    for (int i = 0; i <= 2; ++i)
+    for (int i = 0; i <= 3; ++i)
     {
-      for (int j = i + 1; j <= 2; ++j)
+      for (int j = i + 1; j <= 3; ++j)
       {
         robot->ignoreCollisionBetween(i, j);
       }
@@ -179,7 +179,7 @@ private:
     for (size_t i = 0; i < msg->position.size(); ++i)
     {
       // PD control law
-      tau[i] = p_gain * (msg->position[i] - gc[i]) + d_gain * (msg->velocity[i] - gv[i]);
+      tau[i] = p_gain[i] * (msg->position[i] - gc[i]) + d_gain[i] * (msg->velocity[i] - gv[i]);
     }
 
     // Joint 0: position and velocity
@@ -231,10 +231,10 @@ private:
 
   std::chrono::_V2::system_clock::time_point startTime;
 
-  const double p_gain = 15500.0;
-  const double d_gain = 2000.0;
-  // const double desired_position[2] = {0.0, 0.0}; // Desired positions for the two joints
-  // const double desired_velocity[2] = {0.0, 0.0}; // Desired velocities for the two joints
+  // const double p_gain = 15500.0;
+  // const double d_gain = 2000.0;
+  const double p_gain[3] = {1500.0, 1500.0, 1500.0};
+  const double d_gain[3] = {0.1, 0.05, 0.001};
 };
 
 int main(int argc, char **argv)

@@ -10,7 +10,7 @@ from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
     # paths
-    robot_description_dir = get_package_share_directory("simple_quadruped_leg_description")
+    robot_description_dir = get_package_share_directory("quadruped_leg_description")
     foxglove_pkg_share     = get_package_share_directory("foxglove_bridge")
     foxglove_launch_file   = os.path.join(foxglove_pkg_share, "launch", "foxglove_bridge_launch.xml")
 

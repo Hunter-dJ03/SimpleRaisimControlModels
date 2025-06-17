@@ -5,7 +5,7 @@ from launch.actions import DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    robot_description_path = get_package_share_directory("simple_quadruped_leg_description")
+    robot_description_path = get_package_share_directory("quadruped_leg_description")
     
     return LaunchDescription([
         DeclareLaunchArgument(

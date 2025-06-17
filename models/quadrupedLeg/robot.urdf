@@ -1,0 +1,125 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/15c938082851fbd4bacdce98/w/82abc59e7a8e49fa89bdf240/e/cfa6819dd01d54d7a2d9a068 -->
+<robot name="quadrupedLeg">
+  <!-- Link bodysection -->
+  <link name="bodysection">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <!-- Part bodysection -->
+    <visual>
+      <origin xyz="0.0450888 -0.0589371 -0.0201511" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/bodysection.stl"/>
+      </geometry>
+      <material name="bodysection_material">
+        <color rgba="0.972549 0.529412 0.00392157 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.0450888 -0.0589371 -0.0201511" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/bodysection.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link coxamerge -->
+  <link name="coxamerge">
+    <inertial>
+      <origin xyz="0.0100851 -0.000391481 -0.0598052" rpy="0 0 0"/>
+      <mass value="1.5"/>
+      <inertia ixx="0.00120555" ixy="1.25099e-05" ixz="5.55819e-05" iyy="0.00233404" iyz="-2.28685e-06" izz="0.00180944"/>
+    </inertial>
+    <!-- Part coxamerge -->
+    <visual>
+      <origin xyz="-0.05 -5.75928e-16 -0.0635" rpy="1.5708 1.5708 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxamerge.stl"/>
+      </geometry>
+      <material name="coxamerge_material">
+        <color rgba="0.768627 0.886275 0.952941 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.05 -5.75928e-16 -0.0635" rpy="1.5708 1.5708 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxamerge.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link femurmerge -->
+  <link name="femurmerge">
+    <inertial>
+      <origin xyz="-0.049268 0.0567501 -0.0593829" rpy="0 0 0"/>
+      <mass value="1.952"/>
+      <inertia ixx="0.0164924" ixy="0.01296" ixz="-0.00045054" iyy="0.0125124" iyz="0.000518851" izz="0.0271576"/>
+    </inertial>
+    <!-- Part femurmerge -->
+    <visual>
+      <origin xyz="-2.08167e-17 -3.7817e-16 0.005" rpy="1.5708 -1.55015e-16 -0.0822421"/>
+      <geometry>
+        <mesh filename="package://assets/femurmerge.stl"/>
+      </geometry>
+      <material name="femurmerge_material">
+        <color rgba="0.917647 0.917647 0.917647 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-2.08167e-17 -3.7817e-16 0.005" rpy="1.5708 -1.55015e-16 -0.0822421"/>
+      <geometry>
+        <mesh filename="package://assets/femurmerge.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link tibiamerge -->
+  <link name="tibiamerge">
+    <inertial>
+      <origin xyz="0.0024437 -0.201199 -0.0159512" rpy="0 0 0"/>
+      <mass value="0.22"/>
+      <inertia ixx="0.00533565" ixy="0.000144552" ixz="2.9833e-08" iyy="5.47146e-05" iyz="-1.09715e-09" izz="0.00534053"/>
+    </inertial>
+    <!-- Part tibiamerge -->
+    <visual>
+      <origin xyz="-0.370225 0.0165492 0.053" rpy="1.5708 8.46868e-14 -2.34951"/>
+      <geometry>
+        <mesh filename="package://assets/tibiamerge.stl"/>
+      </geometry>
+      <material name="tibiamerge_material">
+        <color rgba="0.231373 0.380392 0.705882 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.370225 0.0165492 0.053" rpy="1.5708 8.46868e-14 -2.34951"/>
+      <geometry>
+        <mesh filename="package://assets/tibiamerge.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from femurmerge to tibiamerge -->
+  <joint name="kneeFE" type="revolute">
+    <origin xyz="-0.224809 0.29462 -0.048" rpy="-6.93757e-14 -1.04753e-14 2.29011"/>
+    <parent link="femurmerge"/>
+    <child link="tibiamerge"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-1.26504" upper="0.85957"/>
+  </joint>
+  <!-- Joint from coxamerge to femurmerge -->
+  <joint name="hipFE" type="revolute">
+    <origin xyz="-0.055 -6.54338e-15 -0.0635" rpy="1.5708 1.50329 1.5708"/>
+    <parent link="coxamerge"/>
+    <child link="femurmerge"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-2.88121" upper="1.30758"/>
+  </joint>
+  <!-- Joint from bodysection to coxamerge -->
+  <joint name="hipAA" type="revolute">
+    <origin xyz="-0.0184112 -0.00893707 -0.0201511" rpy="-1.5708 -5.72042e-14 1.5708"/>
+    <parent link="bodysection"/>
+    <child link="coxamerge"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-1.0472" upper="1.0472"/>
+  </joint>
+</robot>

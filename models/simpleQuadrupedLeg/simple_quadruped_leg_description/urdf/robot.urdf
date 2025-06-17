@@ -1,0 +1,138 @@
+<?xml version="1.0"?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape
+https://cad.onshape.com/documents/3ebbb10823be46a55188b1ff/w/2488f47398571f659f3fde55/e/946f3cd73884328d9b5e8678 -->
+<robot name="simpleQuadrupedLeg">
+  <!-- Connection to world frame -->
+  <link name="world" />
+  <joint name="world_to_base" type="fixed">
+    <parent link="world" />
+    <child link="base" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+  <!-- Link base -->
+  <link name="base">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0" />
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0" />
+    </inertial>
+    <!-- Part base -->
+    <visual>
+      <origin xyz="0 -0.022 1.73472e-18" rpy="0 1.73472e-16 1.5708" />
+      <geometry>
+        <mesh filename="../meshes/base.obj" />
+      </geometry>
+      <material name="base_material">
+        <color rgba="0.917647 0.917647 0.917647 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -0.022 1.73472e-18" rpy="0 1.73472e-16 1.5708" />
+      <geometry>
+        <mesh filename="../meshes/base.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link link0 -->
+  <link name="link0">
+    <inertial>
+      <origin xyz="-0.00184866 -2.58107e-19 -0.000481421" rpy="0 0 0" />
+      <mass value="0.0221873" />
+      <inertia ixx="1.39301e-06" ixy="-3.42543e-24" ixz="1.97463e-08" iyy="1.98819e-06"
+        iyz="-1.09287e-23" izz="2.05119e-06" />
+    </inertial>
+    <!-- Part link0 -->
+    <visual>
+      <origin xyz="0 -3.06162e-19 0" rpy="-1.5708 -1.5708 0" />
+      <geometry>
+        <mesh filename="../meshes/link0.obj" />
+      </geometry>
+      <material name="link0_material">
+        <color rgba="0.615686 0.811765 0.929412 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -3.06162e-19 0" rpy="-1.5708 -1.5708 0" />
+      <geometry>
+        <mesh filename="../meshes/link0.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link link1 -->
+  <link name="link1">
+    <inertial>
+      <origin xyz="-3.22853e-18 -0.0537081 -0.00455503" rpy="0 0 0" />
+      <mass value="0.0633724" />
+      <inertia ixx="7.1571e-05" ixy="0" ixz="0" iyy="2.86478e-06" iyz="1.30538e-06"
+        izz="7.27655e-05" />
+    </inertial>
+    <!-- Part link1 -->
+    <visual>
+      <origin xyz="0 -3.06162e-19 -0.022" rpy="-1.5708 -0 0" />
+      <geometry>
+        <mesh filename="../meshes/link1.obj" />
+      </geometry>
+      <material name="link1_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -3.06162e-19 -0.022" rpy="-1.5708 -0 0" />
+      <geometry>
+        <mesh filename="../meshes/link1.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link link2 -->
+  <link name="link2">
+    <inertial>
+      <origin xyz="-7.64592e-19 -0.0517566 -0.005" rpy="0 0 0" />
+      <mass value="0.0608088" />
+      <inertia ixx="6.55015e-05" ixy="0" ixz="0" iyy="2.52035e-06" iyz="0" izz="6.70084e-05" />
+    </inertial>
+    <!-- Part link2 -->
+    <visual>
+      <origin xyz="0 0.1 -0.034" rpy="-1.5708 -0 0" />
+      <geometry>
+        <mesh filename="../meshes/link2.obj" />
+      </geometry>
+      <material name="link2_material">
+        <color rgba="0.231373 0.380392 0.705882 1.0" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0.1 -0.034" rpy="-1.5708 -0 0" />
+      <geometry>
+        <mesh filename="../meshes/link2.obj" />
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from link1 to link2 -->
+  <joint name="joint2" type="continuous">
+    <origin xyz="6.93889e-18 -0.1 0.012" rpy="0 -0 0" />
+    <parent link="link1" />
+    <child link="link2" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="600" />
+    <dynamics damping="50.0" friction="500"/>
+  </joint>
+  <!-- Joint from link0 to link1 -->
+  <joint name="joint1" type="continuous">
+    <origin xyz="-0.022 1.73472e-18 0" rpy="-3.14159 1.5708 0" />
+    <parent link="link0" />
+    <child link="link1" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="600" />
+    <dynamics damping="50.0" friction="500"/>
+  </joint>
+  <!-- Joint from base to link0 -->
+  <joint name="joint0" type="continuous">
+    <origin xyz="0 -0.022 2.04089e-18" rpy="-1.5708 -0 0" />
+    <parent link="base" />
+    <child link="link0" />
+    <axis xyz="0 0 1" />
+    <limit effort="1000" velocity="600" />
+    <dynamics damping="50.0" friction="500"/>
+  </joint>
+</robot>

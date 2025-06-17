@@ -5,9 +5,9 @@
   <!-- Link bodysection -->
   <link name="bodysection">
     <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <mass value="0"/>
-      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+      <origin xyz="-0.0638465 0.00917908 -0.0199171" rpy="0 0 0"/>
+      <mass value="2.333"/>
+      <inertia ixx="0.00425967" ixy="-0.00247989" ixz="4.14274e-05" iyy="0.011561" iyz="1.17403e-05" izz="0.014638"/>
     </inertial>
     <!-- Part bodysection -->
     <visual>
@@ -53,13 +53,13 @@
   <!-- Link femurmerge -->
   <link name="femurmerge">
     <inertial>
-      <origin xyz="-0.049268 0.0567501 -0.0593829" rpy="0 0 0"/>
+      <origin xyz="-0.0751519 0.00032822 -0.0593829" rpy="0 0 0"/>
       <mass value="1.952"/>
-      <inertia ixx="0.0164924" ixy="0.01296" ixz="-0.00045054" iyy="0.0125124" iyz="0.000518851" izz="0.0271576"/>
+      <inertia ixx="0.00139318" ixy="0.000264557" ixz="-0.000687157" iyy="0.0276116" iyz="2.92829e-06" izz="0.0271576"/>
     </inertial>
     <!-- Part femurmerge -->
     <visual>
-      <origin xyz="-2.08167e-17 -3.7817e-16 0.005" rpy="1.5708 -1.55015e-16 -0.0822421"/>
+      <origin xyz="2.84495e-16 -2.81025e-16 0.005" rpy="1.5708 -1.8237e-16 0.769245"/>
       <geometry>
         <mesh filename="package://assets/femurmerge.stl"/>
       </geometry>
@@ -68,7 +68,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-2.08167e-17 -3.7817e-16 0.005" rpy="1.5708 -1.55015e-16 -0.0822421"/>
+      <origin xyz="2.84495e-16 -2.81025e-16 0.005" rpy="1.5708 -1.8237e-16 0.769245"/>
       <geometry>
         <mesh filename="package://assets/femurmerge.stl"/>
       </geometry>
@@ -77,13 +77,13 @@
   <!-- Link tibiamerge -->
   <link name="tibiamerge">
     <inertial>
-      <origin xyz="0.0024437 -0.201199 -0.0159512" rpy="0 0 0"/>
+      <origin xyz="0.200162 -0.0205433 -0.0159512" rpy="0 0 0"/>
       <mass value="0.22"/>
-      <inertia ixx="0.00533565" ixy="0.000144552" ixz="2.9833e-08" iyy="5.47146e-05" iyz="-1.09715e-09" izz="0.00534053"/>
+      <inertia ixx="9.07599e-05" ixy="0.000458202" ixz="4.49603e-09" iyy="0.0052996" iyz="2.95126e-08" izz="0.00534053"/>
     </inertial>
     <!-- Part tibiamerge -->
     <visual>
-      <origin xyz="-0.370225 0.0165492 0.053" rpy="1.5708 8.46868e-14 -2.34951"/>
+      <origin xyz="-0.0587099 -0.365914 0.053" rpy="1.5708 1.0228e-13 -0.893131"/>
       <geometry>
         <mesh filename="package://assets/tibiamerge.stl"/>
       </geometry>
@@ -92,7 +92,7 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.370225 0.0165492 0.053" rpy="1.5708 8.46868e-14 -2.34951"/>
+      <origin xyz="-0.0587099 -0.365914 0.053" rpy="1.5708 1.0228e-13 -0.893131"/>
       <geometry>
         <mesh filename="package://assets/tibiamerge.stl"/>
       </geometry>
@@ -100,11 +100,11 @@
   </link>
   <!-- Joint from femurmerge to tibiamerge -->
   <joint name="kneeFE" type="revolute">
-    <origin xyz="-0.224809 0.29462 -0.048" rpy="-6.93757e-14 -1.04753e-14 2.29011"/>
+    <origin xyz="-0.36975 0.025 -0.048" rpy="-6.93555e-14 -1.04177e-14 3.14159"/>
     <parent link="femurmerge"/>
     <child link="tibiamerge"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-1.26504" upper="0.85957"/>
+    <limit effort="10" velocity="10" lower="-2.72142" upper="0.450392"/>
   </joint>
   <!-- Joint from coxamerge to femurmerge -->
   <joint name="hipFE" type="revolute">
@@ -112,11 +112,11 @@
     <parent link="coxamerge"/>
     <child link="femurmerge"/>
     <axis xyz="0 0 1"/>
-    <limit effort="10" velocity="10" lower="-2.88121" upper="1.30758"/>
+    <limit effort="10" velocity="10" lower="-3.7327" upper="0.456088"/>
   </joint>
   <!-- Joint from bodysection to coxamerge -->
   <joint name="hipAA" type="revolute">
-    <origin xyz="-0.0184112 -0.00893707 -0.0201511" rpy="-1.5708 -5.72042e-14 1.5708"/>
+    <origin xyz="-0.0184112 -0.00893707 -0.0201511" rpy="-1.5708 -1.17566e-14 1.5708"/>
     <parent link="bodysection"/>
     <child link="coxamerge"/>
     <axis xyz="0 0 1"/>

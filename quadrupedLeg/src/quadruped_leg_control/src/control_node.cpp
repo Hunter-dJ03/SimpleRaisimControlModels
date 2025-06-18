@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include "quadruped_leg_interfaces/msg/endpoint.hpp"
 #include <Eigen/Dense>
 #include <Eigen/QR>
 
@@ -18,6 +19,7 @@ public:
     legJointVelocity = Eigen::VectorXd::Zero(3);
 
     footPositionActual = forwardKinematics(init_pos[0], init_pos[1], init_pos[2]);
+    footPosition = footPositionActual; // Initialize foot position to actual position
 
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
         "joint_states", 10,
@@ -25,13 +27,17 @@ public:
 
     desired_control_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_desired_control", 10);
 
+    endpoint_publisher_ = this->create_publisher<quadruped_leg_interfaces::msg::Endpoint>("endpoint", 10);
+
+    
+
     RCLCPP_INFO(this->get_logger(), "Pendulum Controller Node started");
   }
 
 private:
   void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
   {
-    int dof = msg->position.size();
+    
 
     sensor_msgs::msg::JointState control_effort;
     control_effort.header.stamp = now();
@@ -39,12 +45,12 @@ private:
     control_effort.position.resize(dof);
     control_effort.velocity.resize(dof);
 
-    
-
+    quadruped_leg_interfaces::msg::Endpoint endpoint_msg;
+    endpoint_msg.header.stamp = now();
 
     /******************   World Control   *****************/
 
-    double vel_x = A0 * cos(omega0 * time); // Desired velocity in x direction
+    double vel_x = A0 * sin(omega0 * time); // Desired velocity in x direction
     double vel_y = A1 * cos(omega1 * time); // Desired velocity in y direction
     double vel_z = A2 * sin(omega2 * time); // Desired velocity in z direction
     // double vel_roll = 0.0; // Desired roll velocity
@@ -55,28 +61,22 @@ private:
     // desired_velocity << vel_x, vel_y, vel_z, vel_roll, vel_pitch, vel_yaw;
 
     Eigen::VectorXd desired_velocity(3);
+    desired_velocity << vel_x, vel_y, vel_z; // Only considering 3D Cartesian space for the leg
 
     footPositionActual = forwardKinematics(msg->position[0], msg->position[1], msg->position[2]);
 
     footPosition += desired_velocity * time_step_ms / 1000.0;
 
     // Cartesian position error
-    Eigen::Vector3d position_error = footPosition - footPositionActual;
+    Eigen::VectorXd position_error = footPosition - footPositionActual;
 
     // PD control in Cartesian space (only P for now)
-    double Kp_cartesian = 5.0;
-    Eigen::Vector3d corrected_velocity = Kp_cartesian * position_error + desired_velocity;
-
+    
+    Eigen::VectorXd corrected_velocity = Kp_cartesian * position_error + desired_velocity;
 
     Eigen::MatrixXd jacobian = computeJacobian(msg->position[0], msg->position[1], msg->position[2]);
     auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
     Eigen::VectorXd legJointVelocity = jacobianPseudoInverse * corrected_velocity;
-
-    // double vel_x = A0 * omega0 * cos(omega0 * time);
-    // double vel_y = A1 * omega1 * cos(omega1 * time);
-    // double vel_z = A2 * omega2 * cos(omega2 * time);
-
-    // legJointVelocity << vel_x, vel_y, vel_z; // Assuming 3 DO
 
     for (int i = 0; i < dof; ++i)
     {
@@ -85,6 +85,7 @@ private:
       control_effort.velocity[i] = legJointVelocity[i];
     }
 
+    
     /******************   Joint Control   *****************/
     /*  // Offset cosine waveform
         control_effort.position[0] = A0 * (1.0 - cos(omega0 * time));
@@ -113,9 +114,28 @@ private:
         control_effort.velocity[1] = 0;
         control_effort.velocity[2] = 0; */
 
+    desired_control_pub_->publish(control_effort);
+
     time += time_step_ms / 1000; // increment time by 1 ms per callback
 
-    desired_control_pub_->publish(control_effort);
+
+    // Fill in desired position
+    endpoint_msg.desired.x = footPosition.x();
+    endpoint_msg.desired.y = footPosition.y();
+    endpoint_msg.desired.z = footPosition.z();
+
+    // Fill in actual position
+    endpoint_msg.actual.x = footPositionActual.x();
+    endpoint_msg.actual.y = footPositionActual.y();
+    endpoint_msg.actual.z = footPositionActual.z();
+
+    // Fill in error (desired - actual)
+    endpoint_msg.error.x = position_error.x();
+    endpoint_msg.error.y = position_error.y();
+    endpoint_msg.error.z = position_error.z();
+
+    
+    endpoint_publisher_->publish(endpoint_msg);
   }
 
   Eigen::MatrixXd computeJacobian(double theta1, double theta2, double theta3)
@@ -161,7 +181,7 @@ private:
     return J;
   }
 
-  Eigen::Vector3d forwardKinematics(double theta1, double theta2, double theta3)
+  Eigen::VectorXd forwardKinematics(double theta1, double theta2, double theta3)
 {
     // Precompute useful terms
     // float s1 = std::sin(theta1), c1 = std::cos(theta1);
@@ -200,6 +220,7 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
+  rclcpp::Publisher<quadruped_leg_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_; 
 
   std::vector<double> init_pos;
   std::vector<double> link_lengths;
@@ -213,9 +234,10 @@ private:
   double gravity = -9.81;
   float time_step_ms;
   float time = 0;
+  int dof = 3;
 
   // Waveform A parameters
-  double A0 = 0.0;   // amplitude
+  double A0 = 0.2;   // amplitude
   double period0 = 3.0; // period in seconds
   double omega0 = 2.0 * M_PI / period0;
 
@@ -225,9 +247,11 @@ private:
   double omega1 = 2.0 * M_PI / period1;
 
   // Waveform C parameters
-  double A2 = 0.2;        // amplitude
+  double A2 = 0.0;        // amplitude
   double period2 = 3.0; // period in seconds
   double omega2 = 2.0 * M_PI / period2;
+
+  double Kp_cartesian = 10.0;
 };
 
 int main(int argc, char **argv)

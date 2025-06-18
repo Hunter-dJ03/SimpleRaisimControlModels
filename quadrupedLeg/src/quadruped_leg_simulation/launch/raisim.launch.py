@@ -9,10 +9,10 @@ def generate_launch_description():
     robot_description_path = get_package_share_directory("quadruped_leg_description")
     operation_path = get_package_share_directory("quadruped_leg_bringup")
     
-    joint_initial_positions = os.path.join(
+    leg_config = os.path.join(
         robot_description_path,
         'config',
-        'joint_initial_positions.yaml'
+        'leg_config.yaml'
         )
     
     operation_params = os.path.join(
@@ -37,7 +37,7 @@ def generate_launch_description():
                 {
                 "robot_description_path": robot_description_path,
                 }, 
-                joint_initial_positions,
+                leg_config,
                 operation_params,
             ]
         )

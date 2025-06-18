@@ -59,9 +59,6 @@ public:
     gf = Eigen::VectorXd::Zero(robot->getDOF());
     damping = Eigen::VectorXd::Zero(robot->getDOF());
 
-    // Eigen::VectorXd jointNominalConfig(robot->getGeneralizedCoordinateDim()), jointVelocityTarget(robot->getDOF());
-    // gc << 0, 0.85148, 1.45637;
-
     // Set siulation position and velocity
     robot->setGeneralizedCoordinate(init_joint_config);
     robot->setGeneralizedVelocity(gv);
@@ -95,11 +92,13 @@ public:
       ;
     RCLCPP_INFO(this->get_logger(), "Server Connected");
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+
     // Create graphs for joint positions and velocities
-    joint0_pos_graph = server.addTimeSeriesGraph("Joint 0 Pos", {"Measured", "Desired"}, "Time (s)", "Position (rad)");
-    joint1_pos_graph = server.addTimeSeriesGraph("Joint 1 Pos", {"Measured", "Desired"}, "Time (s)", "Position (rad)");
-    joint0_vel_graph = server.addTimeSeriesGraph("Joint 0 Vel", {"Measured", "Desired"}, "Time (s)", "Velocity (rad/s)");
-    joint1_vel_graph = server.addTimeSeriesGraph("Joint 1 Vel", {"Measured", "Desired"}, "Time (s)", "Velocity (rad/s)");
+    // joint0_pos_graph = server.addTimeSeriesGraph("Joint 0 Pos", {"Measured", "Desired"}, "Time (s)", "Position (rad)");
+    // joint1_pos_graph = server.addTimeSeriesGraph("Joint 1 Pos", {"Measured", "Desired"}, "Time (s)", "Position (rad)");
+    // joint0_vel_graph = server.addTimeSeriesGraph("Joint 0 Vel", {"Measured", "Desired"}, "Time (s)", "Velocity (rad/s)");
+    // joint1_vel_graph = server.addTimeSeriesGraph("Joint 1 Vel", {"Measured", "Desired"}, "Time (s)", "Velocity (rad/s)");
 
     // Focus on the robot
     server.focusOn(robot);
@@ -208,10 +207,10 @@ private:
     joint1_vel[1] = msg->velocity[1]; // desired velocity
 
     // Update graphs with current joint states
-    joint0_pos_graph->addDataPoints(world.getWorldTime(), joint0_pos);
-    joint1_pos_graph->addDataPoints(world.getWorldTime(), joint1_pos);
-    joint0_vel_graph->addDataPoints(world.getWorldTime(), joint0_vel);
-    joint1_vel_graph->addDataPoints(world.getWorldTime(), joint1_vel);
+    // joint0_pos_graph->addDataPoints(world.getWorldTime(), joint0_pos);
+    // joint1_pos_graph->addDataPoints(world.getWorldTime(), joint1_pos);
+    // joint0_vel_graph->addDataPoints(world.getWorldTime(), joint0_vel);
+    // joint1_vel_graph->addDataPoints(world.getWorldTime(), joint1_vel);
 
 
     // Send forces to the simulation
@@ -223,10 +222,10 @@ private:
   raisim::World world;
   raisim::RaisimServer server{&world};
   raisim::ArticulatedSystem *robot;
-  raisim::TimeSeriesGraph *joint0_pos_graph;
-  raisim::TimeSeriesGraph *joint1_pos_graph;
-  raisim::TimeSeriesGraph *joint0_vel_graph;
-  raisim::TimeSeriesGraph *joint1_vel_graph;
+  // raisim::TimeSeriesGraph *joint0_pos_graph;
+  // raisim::TimeSeriesGraph *joint1_pos_graph;
+  // raisim::TimeSeriesGraph *joint0_vel_graph;
+  // raisim::TimeSeriesGraph *joint1_vel_graph;
 
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr joint_cmd_sub;
@@ -242,8 +241,8 @@ private:
 
   // const double p_gain = 15500.0;
   // const double d_gain = 2000.0;
-  const double p_gain[3] = {1500.0, 1500.0, 1500.0};
-  const double d_gain[3] = {0.1, 0.05, 0.001};
+  const double p_gain[3] = {2500.0, 2500.0, 2500.0};
+  const double d_gain[3] = {10.1, 10.05, 10.001};
 };
 
 int main(int argc, char **argv)

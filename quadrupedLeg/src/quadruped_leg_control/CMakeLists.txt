@@ -11,6 +11,11 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
+find_package(Eigen3 REQUIRED)
+include_directories(
+    ${EIGEN3_INCLUDE_DIRS}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -24,7 +29,7 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(control_node src/control_node.cpp)
-ament_target_dependencies(control_node rclcpp sensor_msgs std_msgs)
+ament_target_dependencies(control_node rclcpp sensor_msgs std_msgs Eigen3)
 install(TARGETS control_node DESTINATION lib/${PROJECT_NAME})
 
 

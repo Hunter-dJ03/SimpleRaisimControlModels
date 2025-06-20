@@ -87,32 +87,32 @@ private:
 
     
     /******************   Joint Control   *****************/
-    /*  // Offset cosine waveform
-        control_effort.position[0] = A0 * (1.0 - cos(omega0 * time));
-        control_effort.position[1] = A1 * (1.0 - cos(omega1 * time));
-        control_effort.position[2] = A2 * (1.0 - cos(omega2 * time));
+     // Offset cosine waveform
+        // control_effort.position[0] = A0 * (1.0 - cos(omega0 * time));
+        // control_effort.position[1] = A1 * (1.0 - cos(omega1 * time));
+        // control_effort.position[2] = A2 * (1.0 - cos(omega2 * time));
 
-        control_effort.velocity[0] = A0 * omega0 * sin(omega0 * time);
-        control_effort.velocity[1] = A1 * omega1 * sin(omega1 * time);
-        control_effort.velocity[2] = A2 * omega2 * sin(omega2 * time);
+        // control_effort.velocity[0] = A0 * omega0 * sin(omega0 * time);
+        // control_effort.velocity[1] = A1 * omega1 * sin(omega1 * time);
+        // control_effort.velocity[2] = A2 * omega2 * sin(omega2 * time);
 
-        // Using sine wave for position and velocity control
-        control_effort.position[0] = A0 * (sin(omega0 * time)) + init_pos[0];
-        control_effort.position[1] = -A1 * (sin(omega1 * time)) + init_pos[1];
-        control_effort.position[2] = -A2 * (sin(omega2 * time)) + init_pos[2];
+        // // Using sine wave for position and velocity control
+        // control_effort.position[0] = A0 * (sin(omega0 * time)) + init_pos[0];
+        // control_effort.position[1] = -A1 * (sin(omega1 * time)) + init_pos[1];
+        // control_effort.position[2] = -A2 * (sin(omega2 * time)) + init_pos[2];
 
-        control_effort.velocity[0] = A0 * omega0 * cos(omega0 * time);
-        control_effort.velocity[1] = -A1 * omega1 * cos(omega1 * time);
-        control_effort.velocity[2] = -A2 * omega2 * cos(omega2 * time);
+        // control_effort.velocity[0] = A0 * omega0 * cos(omega0 * time);
+        // control_effort.velocity[1] = -A1 * omega1 * cos(omega1 * time);
+        // control_effort.velocity[2] = -A2 * omega2 * cos(omega2 * time);
 
         // Holding Position
-        control_effort.position[0] = init_pos[0];
-        control_effort.position[1] = init_pos[1];
-        control_effort.position[2] = init_pos[2];
+        // control_effort.position[0] = init_pos[0];
+        // control_effort.position[1] = init_pos[1];
+        // control_effort.position[2] = init_pos[2];
 
-        control_effort.velocity[0] = 0;
-        control_effort.velocity[1] = 0;
-        control_effort.velocity[2] = 0; */
+        // control_effort.velocity[0] = 0;
+        // control_effort.velocity[1] = 0;
+        // control_effort.velocity[2] = 0; 
 
     desired_control_pub_->publish(control_effort);
 

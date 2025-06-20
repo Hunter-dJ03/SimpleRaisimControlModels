@@ -56,7 +56,7 @@ public:
     auto ground = world.addGround(0);
 
     // Variable Gravity option
-    world.setGravity(Eigen::Vector3d(0, 0, 0));
+    // world.setGravity(Eigen::Vector3d(0, 0, 0));
 
     // Raisim Activation Key
     raisim::World::setActivationKey("$ENV{HOME}/.raisim");
@@ -70,9 +70,9 @@ public:
     robot->setName("Quadruped Leg");
     
     // Remove Collision Meshes
-    for (int i = 0; i <= 8; ++i)
+    for (int i = 0; i <= 30; ++i)
     {
-      for (int j = i + 1; j <= 8; ++j)
+      for (int j = i + 1; j <= 30; ++j)
       {
         robot->ignoreCollisionBetween(i, j);
       }
@@ -87,10 +87,10 @@ public:
     // Set siulation position and velocity
     robot->setGeneralizedCoordinate(init_state);
     robot->setGeneralizedVelocity(gv);
-    robot->setGeneralizedVelocity(gf);
+    robot->setGeneralizedForce(gf);
 
     // Setup control mode for the simulation (May be wrong or unnecessary)
-    robot->setControlMode(raisim::ControlMode::FORCE_AND_TORQUE);
+    // robot->setControlMode(raisim::ControlMode::FORCE_AND_TORQUE);
 
     // Setup raisim server
     server.launchServer(8080);
@@ -208,12 +208,12 @@ private:
     }
 
       // 1) build the string
-    std::ostringstream oss;
-    // transpose() makes it print as a row: [t0 t1 t2 …]
-    oss << tau.transpose();
+    // std::ostringstream oss;
+    // // transpose() makes it print as a row: [t0 t1 t2 …]
+    // oss << tau.transpose();
 
-    // 2) log it
-    RCLCPP_INFO(this->get_logger(), "tau = [%s]", oss.str().c_str());
+    // // 2) log it
+    // RCLCPP_INFO(this->get_logger(), "tau = [%s]", oss.str().c_str());
 
     // Send forces to the simulation
     robot->setGeneralizedForce(tau);

@@ -19,12 +19,12 @@
         <color rgba="0.972549 0.529412 0.00392157 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0.181 0.291 4.26742e-16" rpy="-6.03533e-16 -5.41668e-33 1.5708"/>
       <geometry>
         <mesh filename="../meshes/collision/bodysectioncola.obj"/>
       </geometry>
-    </collision>
+    </collision> -->
     <!-- Part part_1 -->
     <visual>
       <origin xyz="0 0 0" rpy="0 -0 0"/>
@@ -35,10 +35,16 @@
         <color rgba="0.615686 0.811765 0.929412 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0 0 0" rpy="0 -0 0"/>
       <geometry>
         <mesh filename="../meshes/collision/part_1.obj"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+      <geometry>
+        <box size="0.33 0.9 0.088"/>
       </geometry>
     </collision>
     <!-- Part bodysectionb -->
@@ -51,12 +57,12 @@
         <color rgba="0.972549 0.529412 0.00392157 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-0.131 -0.291 4.54498e-16" rpy="-7.77005e-16 5.41668e-33 -1.5708"/>
       <geometry>
         <mesh filename="../meshes/collision/bodysectioncolb.obj"/>
       </geometry>
-    </collision>
+    </collision> -->
     <!-- Part bodysectionb_2 -->
     <visual>
       <origin xyz="0.131 0.291 4.26742e-16" rpy="-6.03533e-16 -5.41668e-33 1.5708"/>
@@ -67,12 +73,12 @@
         <color rgba="0.972549 0.529412 0.00392157 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0.131 0.291 4.26742e-16" rpy="-6.03533e-16 -5.41668e-33 1.5708"/>
       <geometry>
         <mesh filename="../meshes/collision/bodysectioncolb.obj"/>
       </geometry>
-    </collision>
+    </collision> -->
     <!-- Part bodysectiona_2 -->
     <visual>
       <origin xyz="-0.181 -0.291 4.54498e-16" rpy="-7.77005e-16 5.41668e-33 -1.5708"/>
@@ -83,12 +89,12 @@
         <color rgba="0.972549 0.529412 0.00392157 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-0.181 -0.291 4.54498e-16" rpy="-7.77005e-16 5.41668e-33 -1.5708"/>
       <geometry>
         <mesh filename="../meshes/collision/bodysectioncola.obj"/>
       </geometry>
-    </collision>
+    </collision> -->
   </link>
   <!-- Link coxamergel -->
   <link name="coxamergel">
@@ -107,10 +113,16 @@
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0.05 -5.73847e-16 -0.0635" rpy="1.5708 1.5708 0"/>
       <geometry>
         <mesh filename="../meshes/collision/coxamergecolr.obj"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="-0.005 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+        <cylinder radius="0.0385" length="0.163"/>
       </geometry>
     </collision>
   </link>
@@ -131,11 +143,17 @@
         <color rgba="0.917647 0.917647 0.917647 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-1.66533e-16 -2.70617e-16 0.005" rpy="-1.5708 -1.80753e-16 2.37235"/>
       <geometry>
         <mesh filename="../meshes/collision/femurmergecoll.obj"/>
       </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.14 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+      <cylinder radius="0.0355" length="0.47"/>
+    </geometry>
     </collision>
   </link>
   <!-- Link tibiamerger -->
@@ -156,9 +174,15 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.0160231 -0.370248 0.053" rpy="1.5708 4.16327e-14 -0.77729"/>
+      <origin xyz="0.36286171 0.01755111 -0.016 " rpy="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="../meshes/collision/tibiamergecolr.obj"/>
+         <sphere radius="0.025"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.14 0.0 -0.016" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+         <cylinder radius="0.025" length="0.41"/>
       </geometry>
     </collision>
   </link>
@@ -206,10 +230,16 @@
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-0.05 -5.73847e-16 -0.0635" rpy="1.5708 1.5708 0"/>
       <geometry>
         <mesh filename="../meshes/collision/coxamergecolr.obj"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.005 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+        <cylinder radius="0.0385" length="0.163"/>
       </geometry>
     </collision>
   </link>
@@ -230,12 +260,19 @@
         <color rgba="0.917647 0.917647 0.917647 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-2.77556e-16 2.70617e-16 0.005" rpy="1.5708 -1.80753e-16 -2.37235"/>
       <geometry>
         <mesh filename="../meshes/collision/femurmergecolr.obj"/>
       </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.14 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+      <cylinder radius="0.0355" length="0.47"/>
+    </geometry>
     </collision>
+    
   </link>
   <!-- Link tibiamerger_2 -->
   <link name="tibiamerger_2">
@@ -255,9 +292,15 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.0160231 0.370248 -0.085" rpy="-1.5708 -4.16482e-14 0.77729"/>
+      <origin xyz="0.36286171 -0.01755111 -0.016 " rpy="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="../meshes/collision/tibiamergecolr.obj"/>
+         <sphere radius="0.025"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.14 0.0 -0.016" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+         <cylinder radius="0.025" length="0.41"/>
       </geometry>
     </collision>
   </link>
@@ -305,10 +348,16 @@
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-0.05 -5.73847e-16 -0.0635" rpy="1.5708 1.5708 0"/>
       <geometry>
         <mesh filename="../meshes/collision/coxamergecolr.obj"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.005 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+        <cylinder radius="0.0385" length="0.163"/>
       </geometry>
     </collision>
   </link>
@@ -329,11 +378,17 @@
         <color rgba="0.917647 0.917647 0.917647 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-2.77556e-16 -2.74086e-16 0.005" rpy="-1.5708 -1.80753e-16 2.37235"/>
       <geometry>
         <mesh filename="../meshes/collision/femurmergecoll.obj"/>
       </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.14 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+      <cylinder radius="0.0355" length="0.47"/>
+    </geometry>
     </collision>
   </link>
   <!-- Link tibiamerger_3 -->
@@ -354,9 +409,15 @@
       </material>
     </visual>
     <collision>
-      <origin xyz="-0.0160231 -0.370248 0.053" rpy="1.5708 4.16327e-14 -0.77729"/>
+      <origin xyz="0.36286171 0.01755111 -0.016 " rpy="0.0 0.0 0.0"/>
       <geometry>
-        <mesh filename="../meshes/collision/tibiamergecolr.obj"/>
+         <sphere radius="0.025"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0.14 0.0 -0.016" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+         <cylinder radius="0.025" length="0.41"/>
       </geometry>
     </collision>
   </link>
@@ -404,10 +465,16 @@
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0.05 -5.73847e-16 -0.0635" rpy="1.5708 1.5708 0"/>
       <geometry>
         <mesh filename="../meshes/collision/coxamergecolr.obj"/>
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="-0.005 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+        <cylinder radius="0.0385" length="0.163"/>
       </geometry>
     </collision>
   </link>
@@ -428,11 +495,17 @@
         <color rgba="0.917647 0.917647 0.917647 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-2.77556e-16 2.74086e-16 0.005" rpy="1.5708 -1.80753e-16 -2.37235"/>
       <geometry>
         <mesh filename="../meshes/collision/femurmergecolr.obj"/>
       </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.14 0.0 -0.064" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+      <cylinder radius="0.0355" length="0.47"/>
+    </geometry>
     </collision>
   </link>
   <!-- Link tibiamerger_4 -->
@@ -452,12 +525,25 @@
         <color rgba="0.231373 0.380392 0.705882 1.0"/>
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-0.0160231 0.370248 -0.085" rpy="-1.5708 -4.16482e-14 0.77729"/>
       <geometry>
         <mesh filename="../meshes/collision/tibiamergecolr.obj"/>
       </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.36286171 -0.01755111 -0.016 " rpy="0.0 0.0 0.0"/>
+      <geometry>
+         <sphere radius="0.025"/>
+      </geometry>
     </collision>
+    <collision>
+      <origin xyz="0.14 0.0 -0.016" rpy="1.5708 0.0 1.5708"/>
+      <geometry>
+         <cylinder radius="0.025" length="0.41"/>
+      </geometry>
+    </collision>
+
   </link>
   <!-- Joint from femurmerger_2 to tibiamerger_4 -->
   <joint name="BR_KneeFE" type="revolute">

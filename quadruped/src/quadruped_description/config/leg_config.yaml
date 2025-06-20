@@ -1,6 +1,6 @@
 /**:
   ros__parameters:
-    body_initial_position: [0.0, 0.0, 0.6] # [x, y, z]
+    body_initial_position: [0.0, 0.0, 0.57] # [x, y, z]
     body_initial_orientation: [0.0, 0.0, 0.0, 1.0] # [quaternion x, y, z, w]
     joint_initial_positions: [0.0, 0.95148, -1.45637, 0.0, 0.95148, -1.45637, 0.0, 0.95148, -1.45637, 0.0, 0.95148, -1.45637] # [hipAA, hipFE, kneeFE]
     # joint_initial_positions: [0.0, 0.0, 1.57079632679 ] # [hipAA, hipFE, kneeFE]

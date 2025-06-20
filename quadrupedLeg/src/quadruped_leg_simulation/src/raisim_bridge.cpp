@@ -56,7 +56,7 @@ public:
     auto ground = world.addGround(0);
 
     // Variable Gravity option
-    // world.setGravity(Eigen::Vector3d(0, 0, 0));
+    world.setGravity(Eigen::Vector3d(0, 0, 0));
 
     // Raisim Activation Key
     raisim::World::setActivationKey("$ENV{HOME}/.raisim");
@@ -70,7 +70,7 @@ public:
     robot->setName("Quadruped Leg");
     
     // Remove Collision Meshes
-    for (int i = 0; i <= 3; ++i)
+    for (int i = 0; i <= 8; ++i)
     {
       for (int j = i + 1; j <= 3; ++j)
       {
@@ -115,9 +115,9 @@ public:
         std::bind(&RaisimBridge::effortCommandCallback, this, std::placeholders::_1));
 
     // Create timer to update the simulation
-    timer_ = this->create_wall_timer(
-        std::chrono::microseconds((int)(time_step_ms * 1000)),
-        std::bind(&RaisimBridge::update, this));
+    // timer_ = this->create_wall_timer(
+    //     std::chrono::microseconds((int)(time_step_ms * 1000)),
+    //     std::bind(&RaisimBridge::update, this));
 
     // Set start time checking dimulation time displacement
     startTime = std::chrono::high_resolution_clock::now();

@@ -12,6 +12,7 @@ def generate_launch_description():
     # paths
     robot_description_path = get_package_share_directory("quadruped_description")
     operation_path = get_package_share_directory("quadruped_bringup")
+    simulation_path = get_package_share_directory("quadruped_simulation")
     
     leg_config = os.path.join(
         robot_description_path,
@@ -23,6 +24,12 @@ def generate_launch_description():
         operation_path,
         'config',
         'operation.yaml'
+        )
+    
+    simulation_params = os.path.join(
+        simulation_path,
+        'config',
+        'simulation.yaml'
         )
     
     foxglove_pkg_share     = get_package_share_directory("foxglove_bridge")
@@ -44,6 +51,7 @@ def generate_launch_description():
             {"robot_description_path": robot_description_path},
             leg_config,
             operation_params,
+            simulation_params
         ]
     )
     control_node = Node(
@@ -54,6 +62,7 @@ def generate_launch_description():
         parameters=[
             leg_config, 
             operation_params,
+            
         ]
     )
 

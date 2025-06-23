@@ -20,6 +20,9 @@ public:
   {
     // Setup ROS2 parameter time step for simulation, timers and models
     time_step_ms = this->declare_parameter<float>("time_step_ms", 1.0);
+    fixed_robot_body = this->declare_parameter<bool>("fixed_robot_body", false);
+
+    std::cout << fixed_robot_body << std::endl;
 
     this->declare_parameter<std::vector<double>>("body_initial_position", std::vector<double>{});
     this->declare_parameter<std::vector<double>>("body_initial_orientation", std::vector<double>{});
@@ -40,13 +43,21 @@ public:
     int N_pos    = body_pos.size();
     int N_orient = body_orient.size();
     int N_joints = joint_pos.size();
-    
-    init_state.resize(N_pos + N_orient + N_joints);
 
-    // 3. Copy each segment into place
-    init_state.segment(0, N_pos)                = body_pos;
-    init_state.segment(N_pos, N_orient)         = body_orient;
-    init_state.segment(N_pos + N_orient, N_joints) = joint_pos;
+    if (fixed_robot_body) {
+      // If the robot body is fixed, we only need to set the joint positions
+      init_state.resize(N_joints);
+      init_state.segment(0, N_joints) = joint_pos;
+    } else {
+      // If the robot body is not fixed, we need to set the body position, orientation and joint positions
+      init_state.resize(N_pos + N_orient + N_joints);
+          // 3. Copy each segment into place
+      init_state.segment(0, N_pos)                = body_pos;
+      init_state.segment(N_pos, N_orient)         = body_orient;
+      init_state.segment(N_pos + N_orient, N_joints) = joint_pos;
+    }
+  
+
 
 
     // Eigen::VectorXd ` = Eigen::Map<Eigen::VectorXd>(init_pos.data(), init_pos.size());
@@ -63,7 +74,14 @@ public:
 
     // Get robot URDF file path from description package
     std::string urdf_path_base = this->declare_parameter<std::string>("robot_description_path", "/default/path");
-    std::string urdf_file = urdf_path_base + "/urdf/robot.urdf";
+
+    std::string urdf_file;
+
+    if (fixed_robot_body) {
+      urdf_file = urdf_path_base + "/urdf/robot_fixed.urdf";
+    } else {
+      urdf_file = urdf_path_base + "/urdf/robot.urdf";
+    }
 
     // Load robot into RaiSim and give name
     robot = world.addArticulatedSystem(urdf_file);
@@ -82,16 +100,13 @@ public:
     gc = Eigen::VectorXd::Zero(robot->getGeneralizedCoordinateDim());
     gv = Eigen::VectorXd::Zero(robot->getDOF());
     gf = Eigen::VectorXd::Zero(robot->getDOF());
-    damping = Eigen::VectorXd::Zero(robot->getDOF());
+    // damping = Eigen::VectorXd::Zero(robot->getDOF());
 
     // Set siulation position and velocity
     robot->setGeneralizedCoordinate(init_state);
     robot->setGeneralizedVelocity(gv);
     robot->setGeneralizedForce(gf);
-
-    // Setup control mode for the simulation (May be wrong or unnecessary)
-    // robot->setControlMode(raisim::ControlMode::FORCE_AND_TORQUE);
-
+    
     // Setup raisim server
     server.launchServer(8080);
 
@@ -101,7 +116,7 @@ public:
       ;
     RCLCPP_INFO(this->get_logger(), "Server Connected");
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     RCLCPP_INFO(this->get_logger(), "RaisimBridge Node Initialised");
 
@@ -163,6 +178,7 @@ private:
     // Update internal state vectors
     gc = robot->getGeneralizedCoordinate().e();
     gv = robot->getGeneralizedVelocity().e();
+    gf = robot->getGeneralizedForce().e();
 
     // Setup the joinstate message
     sensor_msgs::msg::JointState js;
@@ -171,13 +187,27 @@ private:
     js.name.resize(dof);
     js.position.resize(dof);
     js.velocity.resize(dof);
+    js.effort.resize(dof);
 
-    // Add each joint to the jointstate message
-    for (int i = 0; i < dof - 6; ++i)
+    if (fixed_robot_body)
     {
-      js.name[i] = "joint_" + std::to_string(i); // Generic joint name
-      js.position[i] = gc[i + 7];
-      js.velocity[i] = gv[i + 6];
+      // Add each joint to the jointstate message
+      for (int i = 0; i < dof ; ++i)
+      {
+        js.name[i] = "joint_" + std::to_string(i); // Generic joint name
+        js.position[i] = gc[i];
+        js.velocity[i] = gv[i];
+        js.effort[i] = gf[i];
+      }
+    } else {
+      // Add each joint to the jointstate message
+      for (int i = 0; i < dof - 6; ++i)
+      {
+        js.name[i] = "joint_" + std::to_string(i); // Generic joint name
+        js.position[i] = gc[i + 7];
+        js.velocity[i] = gv[i + 6];
+        js.effort[i] = gf[i + 6];
+      }
     }
 
     // Publish joint states
@@ -189,22 +219,37 @@ private:
   {
     
     // Make sure control commands match the robot dof
-    if (msg->position.size() != robot->getDOF() - 6)
+    if (msg->position.size() != 12)
     {
-      RCLCPP_WARN(this->get_logger(), "Received effort command of wrong size: %ld (expected %ld)",
-                  msg->position.size(), robot->getDOF() - 6);
+      RCLCPP_WARN(this->get_logger(), "Received effort command of wrong size: %ld (expected 12)",
+                  msg->position.size());
       return;
     }
+
 
     // Move forces from message into usable vector format
     Eigen::VectorXd tau = Eigen::VectorXd::Zero(robot->getDOF());
     
-    for (size_t i = 0; i < msg->position.size(); ++i)
+    
+
+
+    if (fixed_robot_body)
     {
-      // PD control law
-      tau[i+6] = p_gain[i] * (msg->position[i] - gc[i+7]) + d_gain[i] * (msg->velocity[i] - gv[i+6]);
-      // tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
-      // tau[i+6] = 1; 
+      for (size_t i = 0; i < msg->position.size(); ++i)
+      {
+        // PD control law
+        tau[i] = p_gain[i] * (msg->position[i] - gc[i]) + d_gain[i] * (msg->velocity[i] - gv[i]);
+        // tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
+        // tau[i+6] = 1; 
+      }
+    } else {
+      for (size_t i = 0; i < msg->position.size(); ++i)
+      {
+        // PD control law
+        tau[i+6] = p_gain[i] * (msg->position[i] - gc[i+7]) + d_gain[i] * (msg->velocity[i] - gv[i+6]);
+        // tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
+        // tau[i+6] = 1; 
+      }
     }
 
       // 1) build the string
@@ -237,12 +282,14 @@ private:
   std::chrono::_V2::system_clock::time_point startTime;
 
   float time_step_ms;
+  bool fixed_robot_body;
 
-  const double p_gain[12] = {250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0, 250.0};
-  const double d_gain[12] = {0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01};
+  const double p_gain[12] = {2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0, 2500.0};
+  const double d_gain[12] = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
 
-  // const double p_gain[3] = {30.0, 30.0, 30.0};
-  // const double d_gain[3] = {0.01, 0.01, 0.01};
+  // const double p_gain[12] = {25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0, 25.0};
+  // const double d_gain[12] = {0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
+
 };
 
 int main(int argc, char **argv)

@@ -18,7 +18,7 @@ public:
     legJointPosition = Eigen::Map<Eigen::VectorXd>(init_pos.data(), init_pos.size());
     legJointVelocity = Eigen::VectorXd::Zero(3);
 
-    footPositionActual = forwardKinematics(init_pos[0], init_pos[1], init_pos[2]);
+    footPositionActual = forwardKinematics(init_pos[0], init_pos[1], init_pfalseos[2]);
     footPosition = footPositionActual; // Initialize foot position to actual position
 
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -31,7 +31,7 @@ public:
 
     
 
-    RCLCPP_INFO(this->get_logger(), "Pendulum Controller Node started");
+    RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
   }
 
 private:
@@ -105,15 +105,8 @@ private:
         // control_effort.velocity[1] = -A1 * omega1 * cos(omega1 * time);
         // control_effort.velocity[2] = -A2 * omega2 * cos(omega2 * time);
 
-        // Holding Position
-        // control_effort.position[0] = init_pos[0];
-        // control_effort.position[1] = init_pos[1];
-        // control_effort.position[2] = init_pos[2];
-
-        // control_effort.velocity[0] = 0;
-        // control_effort.velocity[1] = 0;
-        // control_effort.velocity[2] = 0; 
-
+        
+    // Holding Position
     for (int i = 0; i < dof; ++i)
     {
       // legJointPosition[i] += legJointVelocity[i] * time_step_ms / 1000.0;

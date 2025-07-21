@@ -1,0 +1,19 @@
+{
+    "url": "https://cad.onshape.com/documents/3ebbb10823be46a55188b1ff/w/2488f47398571f659f3fde55/e/946f3cd73884328d9b5e8678",
+    "output_format": "urdf",
+
+    "joint_properties": {
+        "joint0": {
+            "type": "continuous"
+        },
+
+        "joint1": {
+            "type": "continuous"
+        },
+
+        "joint2": {
+            "type": "continuous"
+        }
+    }
+
+}

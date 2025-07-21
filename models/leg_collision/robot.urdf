@@ -1,0 +1,125 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/15c938082851fbd4bacdce98/w/82abc59e7a8e49fa89bdf240/e/2c0fe9672c3d3aa77d7f0989 -->
+<robot name="leg_collision">
+  <!-- Link bodysectioncola -->
+  <link name="bodysectioncola">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1e-09" ixy="0" ixz="0" iyy="1e-09" iyz="0" izz="1e-09"/>
+    </inertial>
+    <!-- Part bodysectioncola -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/bodysectioncola.stl"/>
+      </geometry>
+      <material name="bodysectioncola_material">
+        <color rgba="0.498039 0.498039 0.498039 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/bodysectioncola.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link coxamergecolr -->
+  <link name="coxamergecolr">
+    <inertial>
+      <origin xyz="5.76954e-16 -0.0065 0.0635" rpy="0 0 0"/>
+      <mass value="5.95839"/>
+      <inertia ixx="0.0154003" ixy="0" ixz="0" iyy="0.00441591" iyz="-2.24655e-72" izz="0.0154003"/>
+    </inertial>
+    <!-- Part coxamergecolr -->
+    <visual>
+      <origin xyz="0 0 0.0635" rpy="-1.13362e-70 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxamergecolr.stl"/>
+      </geometry>
+      <material name="coxamergecolr_material">
+        <color rgba="0.972549 0.529412 0.00392157 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0635" rpy="-1.13362e-70 -0 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxamergecolr.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link femurmergecolr -->
+  <link name="femurmergecolr">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1e-09" ixy="0" ixz="0" iyy="1e-09" iyz="0" izz="1e-09"/>
+    </inertial>
+    <!-- Part femurmergecolr -->
+    <visual>
+      <origin xyz="1.11022e-16 -1.05291e-17 -0.064" rpy="0 -1.2326e-32 0"/>
+      <geometry>
+        <mesh filename="package://assets/femurmergecolr.stl"/>
+      </geometry>
+      <material name="femurmergecolr_material">
+        <color rgba="0.768627 0.886275 0.952941 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="1.11022e-16 -1.05291e-17 -0.064" rpy="0 -1.2326e-32 0"/>
+      <geometry>
+        <mesh filename="package://assets/femurmergecolr.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link tibiamergecolr -->
+  <link name="tibiamergecolr">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1e-09" ixy="0" ixz="0" iyy="1e-09" iyz="0" izz="1e-09"/>
+    </inertial>
+    <!-- Part tibiamergecolr -->
+    <visual>
+      <origin xyz="0 -2.08167e-17 0" rpy="3.14159 5.96099e-39 0"/>
+      <geometry>
+        <mesh filename="package://assets/tibiamergecolr.stl"/>
+      </geometry>
+      <material name="tibiamergecolr_material">
+        <color rgba="0.917647 0.917647 0.917647 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -2.08167e-17 0" rpy="3.14159 5.96099e-39 0"/>
+      <geometry>
+        <mesh filename="package://assets/tibiamergecolr.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from femurmergecolr to tibiamergecolr -->
+  <joint name="j2" type="revolute">
+    <origin xyz="0.370594 -1.67738e-11 -0.064" rpy="3.14159 -1.40585e-14 -1.4846e-25"/>
+    <parent link="femurmergecolr"/>
+    <child link="tibiamergecolr"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from coxamergecolr to femurmergecolr -->
+  <joint name="j1" type="revolute">
+    <origin xyz="6.52118e-15 0.055 0.0635" rpy="1.5708 1.5708 0"/>
+    <parent link="coxamergecolr"/>
+    <child link="femurmergecolr"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from bodysectioncola to coxamergecolr -->
+  <joint name="j0" type="revolute">
+    <origin xyz="0.0996 -0.106 -6.89726e-15" rpy="3.14159 -1.5708 0"/>
+    <parent link="bodysectioncola"/>
+    <child link="coxamergecolr"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+</robot>

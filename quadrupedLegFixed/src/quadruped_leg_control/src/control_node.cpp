@@ -38,18 +38,18 @@ private:
   void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
   {
     
-
+    // Create a control effort message of size DOF
     sensor_msgs::msg::JointState control_effort;
     control_effort.header.stamp = now();
     control_effort.name.resize(dof);
     control_effort.position.resize(dof);
     control_effort.velocity.resize(dof);
 
+    // Create foot endpoint message
     quadruped_leg_interfaces::msg::Endpoint endpoint_msg;
     endpoint_msg.header.stamp = now();
 
     /******************   World Control   *****************/
-
     double vel_x = A0 * sin(omega0 * time); // Desired velocity in x direction
     double vel_y = A1 * cos(omega1 * time); // Desired velocity in y direction
     double vel_z = A2 * sin(omega2 * time); // Desired velocity in z direction
@@ -237,21 +237,21 @@ private:
   int dof = 3;
 
   // Waveform A parameters
-  double A0 = 0.2;   // amplitude
+  double A0 = 0.0;   // amplitude
   double period0 = 3.0; // period in seconds
   double omega0 = 2.0 * M_PI / period0;
 
   // Waveform B parameters
-  double A1 = -0.5;   // amplitude
+  double A1 = 0.2;   // amplitude
   double period1 = 3.0; // period in seconds
   double omega1 = 2.0 * M_PI / period1;
 
   // Waveform C parameters
-  double A2 = 0.0;        // amplitude
+  double A2 = 0.2;        // amplitude
   double period2 = 3.0; // period in seconds
   double omega2 = 2.0 * M_PI / period2;
 
-  double Kp_cartesian = 10.0;
+  double Kp_cartesian = 0.0;
 };
 
 int main(int argc, char **argv)

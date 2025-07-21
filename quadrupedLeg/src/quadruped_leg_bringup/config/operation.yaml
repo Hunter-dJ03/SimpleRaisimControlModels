@@ -1,4 +1,4 @@
 /**:
   ros__parameters:
-    time_step_ms: 50.0
+    time_step_ms: 1.0
     

@@ -15,11 +15,25 @@ public:
     init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
     link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
-    legJointPosition = Eigen::Map<Eigen::VectorXd>(init_pos.data(), init_pos.size());
-    legJointVelocity = Eigen::VectorXd::Zero(3);
+    legJointPosition = Eigen::MatrixXd(4, 3);
+    legJointVelocity = Eigen::MatrixXd::Zero(4, 3);
+    footPosition = Eigen::MatrixXd::Zero(4, 3);
+    footPositionActual = Eigen::MatrixXd::Zero(4, 3);
 
-    footPositionActual = forwardKinematics(init_pos[0], init_pos[1], init_pfalseos[2]);
-    footPosition = footPositionActual; // Initialize foot position to actual position
+    // Fill legJointPosition from init_pos
+    for (int leg = 0; leg < 4; ++leg)
+    {
+      for (int joint = 0; joint < 3; ++joint)
+      {
+        legJointPosition(leg, joint) = init_pos[leg * 3 + joint];
+      }
+      // Compute foot position from FK
+      footPositionActual.row(leg) = forwardKinematics(
+          legJointPosition(leg, 0),
+          legJointPosition(leg, 1),
+          legJointPosition(leg, 2));
+      footPosition.row(leg) = footPositionActual.row(leg);
+    }
 
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
         "joint_states", 10,
@@ -29,15 +43,12 @@ public:
 
     endpoint_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint", 10);
 
-    
-
     RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
   }
 
 private:
   void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
   {
-    
 
     sensor_msgs::msg::JointState control_effort;
     control_effort.header.stamp = now();
@@ -60,66 +71,65 @@ private:
     // Eigen::VectorXd desired_velocity(6);
     // desired_velocity << vel_x, vel_y, vel_z, vel_roll, vel_pitch, vel_yaw;
 
-    // Eigen::VectorXd desired_velocity(3);
-    // desired_velocity << vel_x, vel_y, vel_z; // Only considering 3D Cartesian space for the leg
+    Eigen::VectorXd desired_velocity(3);
+    desired_velocity << vel_x, vel_y, vel_z; // Only considering 3D Cartesian space for the leg
+    desired_velocity << 0, 0, -0.1; // Only considering 3D Cartesian space for the leg
 
-    // footPositionActual = forwardKinematics(msg->position[0], msg->position[1], msg->position[2]);
+    for (size_t leg = 0; leg < 4; ++leg)
+    {
+      Eigen::Vector3d fk = forwardKinematics(msg->position[leg*3+0], msg->position[leg*3+1], msg->position[leg*3+2]);
+      footPositionActual.row(leg) = fk;
+      footPosition.row(leg) += desired_velocity * time_step_ms / 1000.0;
 
-    // footPosition += desired_velocity * time_step_ms / 1000.0;
+      Eigen::Vector3d position_error = footPosition.row(leg) - footPositionActual.row(leg);
+      Eigen::Vector3d corrected_velocity = Kp_cartesian * position_error + desired_velocity;
+      Eigen::MatrixXd jacobian = computeJacobian(
+        msg->position[leg * 3 + 0],
+        msg->position[leg * 3 + 1],
+        msg->position[leg * 3 + 2]
+      );
+      auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
+      legJointVelocity.row(leg) = jacobianPseudoInverse * corrected_velocity;
+      
+      for (int joint = 0; joint < 3; ++joint) {
+        legJointPosition(leg, joint) += legJointVelocity(leg, joint) * time_step_ms / 1000.0;
+        control_effort.position[leg * 3 + joint] = legJointPosition(leg, joint);
+        control_effort.velocity[leg * 3 + joint] = legJointVelocity(leg, joint);
+      }
+    }
 
-    // // Cartesian position error
-    // Eigen::VectorXd position_error = footPosition - footPositionActual;
+    /******************   Joint Control   *****************/
+    // Offset cosine waveform
+    // control_effort.position[0] = A0 * (1.0 - cos(omega0 * time));
+    // control_effort.position[1] = A1 * (1.0 - cos(omega1 * time));
+    // control_effort.position[2] = A2 * (1.0 - cos(omega2 * time));
 
-    // // PD control in Cartesian space (only P for now)
-    
-    // Eigen::VectorXd corrected_velocity = Kp_cartesian * position_error + desired_velocity;
+    // control_effort.velocity[0] = A0 * omega0 * sin(omega0 * time);
+    // control_effort.velocity[1] = A1 * omega1 * sin(omega1 * time);
+    // control_effort.velocity[2] = A2 * omega2 * sin(omega2 * time);
 
-    // Eigen::MatrixXd jacobian = computeJacobian(msg->position[0], msg->position[1], msg->position[2]);
-    // auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
-    // Eigen::VectorXd legJointVelocity = jacobianPseudoInverse * corrected_velocity;
+    // // Using sine wave for position and velocity control
+    // control_effort.position[0] = A0 * (sin(omega0 * time)) + init_pos[0];
+    // control_effort.position[1] = -A1 * (sin(omega1 * time)) + init_pos[1];
+    // control_effort.position[2] = -A2 * (sin(omega2 * time)) + init_pos[2];
 
+    // control_effort.velocity[0] = A0 * omega0 * cos(omega0 * time);
+    // control_effort.velocity[1] = -A1 * omega1 * cos(omega1 * time);
+    // control_effort.velocity[2] = -A2 * omega2 * cos(omega2 * time);
+
+    // Holding Position
     // for (int i = 0; i < dof; ++i)
     // {
-    //   legJointPosition[i] += legJointVelocity[i] * time_step_ms / 1000.0;
-    //   control_effort.position[i] = legJointPosition[i];
-    //   control_effort.velocity[i] = legJointVelocity[i];
+    //   // legJointPosition[i] += legJointVelocity[i] * time_step_ms / 1000.0;
+    //   // control_effort.position[i] = legJointPosition[i];
+    //   // control_effort.velocity[i] = legJointVelocity[i];
+    //   control_effort.position[i] = init_pos[i]; // Set desired position to initial position
+    //   control_effort.velocity[i] = 0;           // Set desired velocity to zero
     // }
-
-    
-    /******************   Joint Control   *****************/
-     // Offset cosine waveform
-        // control_effort.position[0] = A0 * (1.0 - cos(omega0 * time));
-        // control_effort.position[1] = A1 * (1.0 - cos(omega1 * time));
-        // control_effort.position[2] = A2 * (1.0 - cos(omega2 * time));
-
-        // control_effort.velocity[0] = A0 * omega0 * sin(omega0 * time);
-        // control_effort.velocity[1] = A1 * omega1 * sin(omega1 * time);
-        // control_effort.velocity[2] = A2 * omega2 * sin(omega2 * time);
-
-        // // Using sine wave for position and velocity control
-        // control_effort.position[0] = A0 * (sin(omega0 * time)) + init_pos[0];
-        // control_effort.position[1] = -A1 * (sin(omega1 * time)) + init_pos[1];
-        // control_effort.position[2] = -A2 * (sin(omega2 * time)) + init_pos[2];
-
-        // control_effort.velocity[0] = A0 * omega0 * cos(omega0 * time);
-        // control_effort.velocity[1] = -A1 * omega1 * cos(omega1 * time);
-        // control_effort.velocity[2] = -A2 * omega2 * cos(omega2 * time);
-
-        
-    // Holding Position
-    for (int i = 0; i < dof; ++i)
-    {
-      // legJointPosition[i] += legJointVelocity[i] * time_step_ms / 1000.0;
-      // control_effort.position[i] = legJointPosition[i];
-      // control_effort.velocity[i] = legJointVelocity[i];
-      control_effort.position[i] = init_pos[i]; // Set desired position to initial position
-      control_effort.velocity[i] = 0; // Set desired velocity to zero
-    }
 
     desired_control_pub_->publish(control_effort);
 
     time += time_step_ms / 1000; // increment time by 1 ms per callback
-
 
     // Fill in desired position
     // endpoint_msg.desired.x = footPosition.x();
@@ -136,7 +146,6 @@ private:
     // endpoint_msg.error.y = position_error.y();
     // endpoint_msg.error.z = position_error.z();
 
-    
     endpoint_publisher_->publish(endpoint_msg);
   }
 
@@ -170,21 +179,21 @@ private:
         l2 * std::sin(theta1) * std::sin(theta2) - l1 * std::cos(theta1) + l3 * std::cos(theta2) * std::sin(theta1) * std::sin(theta3) + l3 * std::cos(theta3) * std::sin(theta1) * std::sin(theta2),
         -std::cos(theta1) * (l3 * std::cos(theta2 + theta3) + l2 * std::cos(theta2)),
         -l3 * std::cos(theta2 + theta3) * std::cos(theta1);
-        // 0,
-        // std::cos(theta1),
-        // std::cos(theta1),
-        // 1,
-        // 0,
-        // 0,
-        // 0,
-        // -std::sin(theta1),
-        // -std::sin(theta1);
+    // 0,
+    // std::cos(theta1),
+    // std::cos(theta1),
+    // 1,
+    // 0,
+    // 0,
+    // 0,
+    // -std::sin(theta1),
+    // -std::sin(theta1);
 
     return J;
   }
 
   Eigen::VectorXd forwardKinematics(double theta1, double theta2, double theta3)
-{
+  {
     // Precompute useful terms
     // float s1 = std::sin(theta1), c1 = std::cos(theta1);
     // float s2 = std::sin(theta2), c2 = std::cos(theta2);
@@ -198,40 +207,38 @@ private:
 
     // Build the transformation matrix
     Eigen::Matrix4d fk;
-    fk << -std::sin(theta2 + theta3)*std::sin(theta1),
-        -std::cos(theta2 + theta3)*std::sin(theta1),
-        std::cos(theta1), 
-        l1*std::cos(theta1) - l2*std::sin(theta1)*std::sin(theta2) - l3*std::cos(theta2)*std::sin(theta1)*std::sin(theta3) - l3*std::cos(theta3)*std::sin(theta1)*std::sin(theta2),
+    fk << -std::sin(theta2 + theta3) * std::sin(theta1),
+        -std::cos(theta2 + theta3) * std::sin(theta1),
+        std::cos(theta1),
+        l1 * std::cos(theta1) - l2 * std::sin(theta1) * std::sin(theta2) - l3 * std::cos(theta2) * std::sin(theta1) * std::sin(theta3) - l3 * std::cos(theta3) * std::sin(theta1) * std::sin(theta2),
         -std::cos(theta2 + theta3),
         std::sin(theta2 + theta3),
         0,
-        - l3*std::cos(theta2 + theta3) - l2*std::cos(theta2),
-        -std::sin(theta2 + theta3)*std::cos(theta1), 
-        -std::cos(theta2 + theta3)*std::cos(theta1), 
-        -std::sin(theta1), 
-        - l1*std::sin(theta1) - l2*std::cos(theta1)*std::sin(theta2) - l3*std::cos(theta1)*std::cos(theta2)*std::sin(theta3) - l3*std::cos(theta1)*std::cos(theta3)*std::sin(theta2),
-        0, 
+        -l3 * std::cos(theta2 + theta3) - l2 * std::cos(theta2),
+        -std::sin(theta2 + theta3) * std::cos(theta1),
+        -std::cos(theta2 + theta3) * std::cos(theta1),
+        -std::sin(theta1),
+        -l1 * std::sin(theta1) - l2 * std::cos(theta1) * std::sin(theta2) - l3 * std::cos(theta1) * std::cos(theta2) * std::sin(theta3) - l3 * std::cos(theta1) * std::cos(theta3) * std::sin(theta2),
         0,
-        0, 
+        0,
+        0,
         1;
 
     // Extract and return the position (4th column, top 3 rows)
-    return fk.block<3, 1>(0, 3);  // XYZ position
-}
-
+    return fk.block<3, 1>(0, 3); // XYZ position
+  }
 
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
-  rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_; 
+  rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
 
   std::vector<double> init_pos;
   std::vector<double> link_lengths;
 
-  Eigen::VectorXd legJointPosition;
-  Eigen::VectorXd legJointVelocity;
-
-  Eigen::VectorXd footPosition;
-  Eigen::VectorXd footPositionActual;
+  Eigen::MatrixXd legJointPosition;   // (4x3)
+  Eigen::MatrixXd legJointVelocity;   // (4x3)
+  Eigen::MatrixXd footPosition;       // (4x3)
+  Eigen::MatrixXd footPositionActual; // (4x3)
 
   double gravity = -9.81;
   float time_step_ms;
@@ -239,21 +246,21 @@ private:
   int dof = 12;
 
   // Waveform A parameters
-  double A0 = 0.2;   // amplitude
+  double A0 = 0.0;      // amplitude
   double period0 = 3.0; // period in seconds
   double omega0 = 2.0 * M_PI / period0;
 
   // Waveform B parameters
-  double A1 = -0.5;   // amplitude
+  double A1 = 0.0;     // amplitude
   double period1 = 3.0; // period in seconds
   double omega1 = 2.0 * M_PI / period1;
 
   // Waveform C parameters
-  double A2 = 0.0;        // amplitude
+  double A2 = 0.2;      // amplitude
   double period2 = 3.0; // period in seconds
   double omega2 = 2.0 * M_PI / period2;
 
-  double Kp_cartesian = 10.0;
+  double Kp_cartesian = 0.0;
 };
 
 int main(int argc, char **argv)

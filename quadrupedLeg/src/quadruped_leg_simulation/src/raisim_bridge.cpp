@@ -239,7 +239,7 @@ private:
             for (size_t i = 0; i < msg->position.size(); ++i)
             {
                 // PD control law
-                tau[i] = p_gain[i] * (msg->position[i] - gc[i]) + d_gain[i] * (msg->velocity[i] - gv[i]);
+                tau[i] = p_gain[i] * (msg->position[i] - gc[i]) + d_gain[i] * (msg->velocity[i] - gv[i]) + msg->effort[i];
                 // tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
             }
         }
@@ -248,7 +248,7 @@ private:
             for (size_t i = 0; i < msg->position.size(); ++i)
             {
                 // PD control law
-                tau[i + 6] = p_gain[i] * (msg->position[i] - gc[i + 7]) + d_gain[i] * (msg->velocity[i] - gv[i + 6]);
+                tau[i + 6] = p_gain[i] * (msg->position[i] - gc[i + 7]) + d_gain[i] * (msg->velocity[i] - gv[i + 6] + msg->effort[i]);
                 // tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
             }
         }
@@ -276,8 +276,11 @@ private:
     float time_step_ms;
     bool fixed_robot_body;
 
-    const double p_gain[3] = {220.0, 220.0, 220.0};
-    const double d_gain[3] = {5.0, 5.0, 5.0};
+    // const double p_gain[3] = {220.0, 220.0, 220.0};
+    // const double d_gain[3] = {5.0, 5.0, 5.0};
+
+    const double p_gain[3] = {0, 0, 0};
+    const double d_gain[3] = {0, 0, 0};
 };
 
 int main(int argc, char **argv)

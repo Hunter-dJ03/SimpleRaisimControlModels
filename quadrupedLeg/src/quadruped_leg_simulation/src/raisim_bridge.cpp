@@ -276,11 +276,11 @@ private:
     float time_step_ms;
     bool fixed_robot_body;
 
-    // const double p_gain[3] = {220.0, 220.0, 220.0};
-    // const double d_gain[3] = {5.0, 5.0, 5.0};
+    const double p_gain[3] = {0.0, 0.0, 0.0};
+    const double d_gain[3] = {0.0, 0.0, 0.0};
 
-    const double p_gain[3] = {0, 0, 0};
-    const double d_gain[3] = {0, 0, 0};
+    // const double p_gain[3] = {80.0, 80.0, 80.0};
+    // const double d_gain[3] = {1.5, 1.5, 1.5};
 };
 
 int main(int argc, char **argv)

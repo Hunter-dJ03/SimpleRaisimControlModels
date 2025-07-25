@@ -28,12 +28,18 @@ https://cad.onshape.com/documents/15c938082851fbd4bacdce98/w/82abc59e7a8e49fa89b
         <color rgba="0.972549 0.529412 0.00392157 1.0" />
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0 0 0" rpy="0 -0 0" />
       <geometry>
         <mesh filename="../meshes/bodysectiona.obj" />
       </geometry>
-    </collision>
+    </collision> -->
+    <!-- <collision>
+      <origin xyz="0.09075181 -0.0732 0.0" rpy="0 -0 0" />
+      <geometry>
+        <box size="0.27160362 0.14680000 0.082" />
+      </geometry>
+    </collision> -->
   </link>
   <!-- Link coxamerger -->
   <link name="coxamerger">
@@ -53,10 +59,16 @@ https://cad.onshape.com/documents/15c938082851fbd4bacdce98/w/82abc59e7a8e49fa89b
         <color rgba="0.768627 0.886275 0.952941 1.0" />
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="-7.88861e-31 0 0.0635" rpy="-1.84889e-32 -2.46519e-32 1.37434e-30" />
       <geometry>
         <mesh filename="../meshes/coxamerger.obj" />
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.00 -0.005 0.0635" rpy="1.5708 0.0 0.0" />
+      <geometry>
+        <cylinder radius="0.0385" length="0.163" />
       </geometry>
     </collision>
   </link>
@@ -78,10 +90,16 @@ https://cad.onshape.com/documents/15c938082851fbd4bacdce98/w/82abc59e7a8e49fa89b
         <color rgba="0.917647 0.917647 0.917647 1.0" />
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="1.11022e-16 -1.05291e-17 -0.064" rpy="3.14159 2.83318e-32 -9.86076e-32" />
       <geometry>
         <mesh filename="../meshes/femurmerger.obj" />
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.14 0.01 -0.064" rpy="1.5708 0.0 1.63830682814 " />
+      <geometry>
+        <cylinder radius="0.0355" length="0.47" />
       </geometry>
     </collision>
   </link>
@@ -103,10 +121,22 @@ https://cad.onshape.com/documents/15c938082851fbd4bacdce98/w/82abc59e7a8e49fa89b
         <color rgba="0.231373 0.380392 0.705882 1.0" />
       </material>
     </visual>
-    <collision>
+    <!-- <collision>
       <origin xyz="0 0 0" rpy="-6.31089e-30 -1.92566e-29 0" />
       <geometry>
         <mesh filename="../meshes/tibiamerger.obj" />
+      </geometry>
+    </collision> -->
+    <collision>
+      <origin xyz="0.0 -0.36328592 0.0 " rpy="0.0 0.0 0.0" />
+      <geometry>
+        <sphere radius="0.025" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="-0.007 -0.14 0.0" rpy="1.5708 0.0 -0.0483309246" />
+      <geometry>
+        <cylinder radius="0.02" length="0.41" />
       </geometry>
     </collision>
   </link>

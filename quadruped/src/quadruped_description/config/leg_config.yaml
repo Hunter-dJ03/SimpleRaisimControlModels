@@ -1,7 +1,8 @@
 /**:
   ros__parameters:
-    body_initial_position: [0.0, 0.0, 0.57] # [x, y, z]
+    body_initial_position: [0.0, 0.0, 1.57] # [x, y, z]
     body_initial_orientation: [0.0, 0.0, 0.0, 1.0] # [quaternion x, y, z, w]
-    joint_initial_positions: [0.0, 0.95148, -1.45637, 0.0, 0.95148, -1.45637, 0.0, 0.95148, -1.45637, 0.0, 0.95148, -1.45637] # [hipAA, hipFE, kneeFE]
+    joint_initial_positions: [0.0, -0.78539816339, 0.0, 0.0, -0.78539816339, 0.0, 0.0, -0.78539816339, 0.0, 0.0, -0.78539816339, 0.0] # [hipAA, hipFE, kneeFE]
+    # joint_initial_positions: [0.123456789, -0.234567891, 0.567890123, 0.234567891, -0.987654321, 0.345678912, 0.456789012, -0.345678901, 0.678901234, -0.567890123, -1.123456789, 0.789012345] # [hipAA, hipFE, kneeFE]
     # joint_initial_positions: [0.0, 0.0, 1.57079632679 ] # [hipAA, hipFE, kneeFE]
-    link_lengths: [0.12036888, 0.3705942, 0.36328592] # [hipAA, hipFE, kneeFE]
+    link_lengths: [0.119, 0.3705942, 0.36328592] # [hipAA, hipFE, kneeFE]

@@ -64,7 +64,7 @@ public:
 
 		// Set world timestep for simulation
 		world.setTimeStep(time_step_ms / 1000.0f);
-		auto ground = world.addGround(0);
+		[[maybe_unused]] auto ground = world.addGround(0);
 
 		// Variable Gravity option
 		// world.setGravity(Eigen::Vector3d(0, 0, 0));
@@ -285,11 +285,11 @@ private:
 	float time_step_ms;
 	bool fixed_robot_body;
 
-	// const double p_gain[12] = {80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0, 80.0};
-	// const double d_gain[12] = {1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5};
+	const double p_gain[12] = {280.0, 280.0, 380.0, 280.0, 280.0, 380.0, 280.0, 280.0, 380.0, 280.0, 280.0, 380.0};
+	const double d_gain[12] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
 
-	const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
 };
 

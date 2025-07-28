@@ -4,7 +4,7 @@
     body_initial_orientation: [0.0, 0.0, 0.0, 1.0] # [quaternion x, y, z, w]
     # joint_initial_positions: [0.0, 0.85148, 1.45637] # [hipAA, hipFE, kneeFE]
     # joint_initial_positions: [0.0, -2.35619449019, 3.14159265359] # [hipAA, hipFE, kneeFE]
-    # joint_initial_positions: [0.123456789, -1.234567891, 0.567890123] # [hipAA, hipFE, kneeFE]
+    joint_initial_positions: [-0.223456789, 0.734567891, -0.567890123] # [hipAA, hipFE, kneeFE]
 
     # link_lengths: [0.12036888, 0.3705942, 0.36328592] # [hipAA, hipFE, kneeFE]
     link_lengths: [0.119, 0.3705942, 0.36328592] # [hipAA, hipFE, kneeFE]

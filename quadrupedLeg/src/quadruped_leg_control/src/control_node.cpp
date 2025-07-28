@@ -102,8 +102,6 @@ private:
         RCLCPP_INFO_STREAM(this->get_logger(), "NE: Coriolis + Centrifugal:" << NE_Ccorcent_torques.transpose());
         RCLCPP_INFO_STREAM(this->get_logger(), "LD: Coriolis + Centrifugal:" << LD_Ccorcent_torques.transpose());
 
-        // NE_G(0) *= -1;
-
         // For each DOF
         for (int i = 0; i < dof; ++i)
         {
@@ -306,7 +304,7 @@ private:
             s1, c1, 0,
             0, 0, 1; // R01
         R[1] << s2, c2, 0,
-            0, 0, 1,
+            0, 0, -1,
             -c2, s2, 0; // R12 (alpha1 = -pi/2 folded in)
         R[2] << c3, -s3, 0,
             s3, c3, 0,

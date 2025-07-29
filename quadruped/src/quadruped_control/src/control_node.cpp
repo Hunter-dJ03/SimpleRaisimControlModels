@@ -254,7 +254,12 @@ private:
 
 		// ─── Constants ─────────────────────────────────────────────────────────────
 		//  link lengths (m)
-		const double l1 = link_lengths[0], l2 = link_lengths[1], l3 = link_lengths[2];
+		double l1 = link_lengths[0], l2 = link_lengths[1], l3 = link_lengths[2];
+
+		if (leg == 0 || leg == 1)
+		{
+			l1 *= -1;
+		}
 
 		// updated masses (kg)
 		const std::array<double, 3> mass = {1.5, 1.952, 0.219992};
@@ -285,10 +290,10 @@ private:
 		oc[0] = Eigen::Vector3d::Zero();   // from frame0 to frame1
 		oc[1] = Eigen::Vector3d(0, l1, 0); // from frame1 to frame2
 
-		if (leg == 0 || leg == 1)
-		{
-			oc[1] *= -1; // Adjust for left legs
-		}
+		// if (leg == 0 || leg == 1)
+		// {
+		// 	oc[1] *= -1; // Adjust for left legs
+		// }
 
 		oc[2] = Eigen::Vector3d(l2, 0, 0);	// from frame2 to frame3
 		oc[3] = Eigen::Vector3d(0, -l3, 0); // from frame3 to end
@@ -453,17 +458,17 @@ private:
 	float time = 0;
 	int dof = 12;
 
-	// Waveform A parameters
+	// Waveform A parameters (x)
 	double A0 = 0.0;	  // amplitude
 	double period0 = 3.0; // period in seconds
 	double omega0 = 2.0 * M_PI / period0;
 
-	// Waveform B parameters
+	// Waveform B parameters (y)
 	double A1 = 0.3;	  // amplitude
 	double period1 = 3.0; // period in seconds
 	double omega1 = 2.0 * M_PI / period1;
 
-	// Waveform C parameters
+	// Waveform C parameters (z)
 	double A2 = 0.3;	  // amplitude
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;

@@ -118,6 +118,10 @@ public:
 		robot->setGeneralizedVelocity(gv);
 		robot->setGeneralizedForce(gf);
 
+
+		// CoM Ball Display
+		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1,0,0,1);
+
 		// Setup raisim server
 		server.launchServer(8080);
 
@@ -190,6 +194,14 @@ private:
 		gc = robot->getGeneralizedCoordinate().e();
 		gv = robot->getGeneralizedVelocity().e();
 		gf = robot->getGeneralizedForce().e();
+
+
+
+		auto com = robot->getCOM();
+		RCLCPP_INFO(this->get_logger(), "COM Position: [%f, %f, %f]", com[0], com[1], com[2]);
+
+		comSphere->setPosition(com[0], com[1], com[2]);
+
 
 		// Setup the joinstate message
 		sensor_msgs::msg::JointState js;
@@ -271,6 +283,9 @@ private:
 	raisim::World world;
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
+	raisim::Visuals *comSphere;
+
+
 
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
 	rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr joint_cmd_sub;

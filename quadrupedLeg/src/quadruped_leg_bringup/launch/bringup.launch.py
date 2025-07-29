@@ -12,17 +12,24 @@ def generate_launch_description():
     # paths
     robot_description_path = get_package_share_directory("quadruped_leg_description")
     operation_path = get_package_share_directory("quadruped_leg_bringup")
+    simulation_path = get_package_share_directory("quadruped_leg_simulation")
     
-    joint_initial_positions = os.path.join(
+    leg_config = os.path.join(
         robot_description_path,
         'config',
-        'joint_initial_positions.yaml'
+        'leg_config.yaml'
         )
     
     operation_params = os.path.join(
         operation_path,
         'config',
         'operation.yaml'
+        )
+
+    simulation_params = os.path.join(
+        simulation_path,
+        'config',
+        'simulation.yaml'
         )
     
     foxglove_pkg_share     = get_package_share_directory("foxglove_bridge")
@@ -42,8 +49,9 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {"robot_description_path": robot_description_path},
-            joint_initial_positions,
+            leg_config,
             operation_params,
+            simulation_params,
         ]
     )
     control_node = Node(
@@ -52,7 +60,7 @@ def generate_launch_description():
         name="pendulum_controller",
         output="screen",
         parameters=[
-            joint_initial_positions, 
+            leg_config, 
             operation_params,
         ]
     )

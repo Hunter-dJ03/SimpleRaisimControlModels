@@ -10,6 +10,12 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(quadruped_leg_interfaces REQUIRED)                        
+
+find_package(Eigen3 REQUIRED)
+include_directories(
+    ${EIGEN3_INCLUDE_DIRS}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -24,7 +30,7 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(control_node src/control_node.cpp)
-ament_target_dependencies(control_node rclcpp sensor_msgs std_msgs)
+ament_target_dependencies(control_node rclcpp sensor_msgs std_msgs Eigen3 quadruped_leg_interfaces)
 install(TARGETS control_node DESTINATION lib/${PROJECT_NAME})
 
 

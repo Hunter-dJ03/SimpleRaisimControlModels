@@ -18,8 +18,11 @@ public:
 		// Initialise variables for leg joint positions, velocities, and foot positions
 		legJointPosition.resize(4);
 		legJointVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		legJointTorque = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		footPositionInit = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		footVelocityActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
 		// Fill legJointPosition from init_pos
 		for (int leg = 0; leg < 4; ++leg)
@@ -35,6 +38,7 @@ public:
 				leg);
 
 			footPosition[leg] = footPositionActual[leg];
+			footPositionInit[leg] = footPositionActual[leg];
 		}
 
 		// Set up subscription to encoder feedback for joint states
@@ -77,10 +81,16 @@ private:
 		// Temporary velocities for foot
 		double vel_x = A0 * cos(omega0 * time); // Desired velocity in x direction
 		double vel_y = A1 * cos(omega1 * time); // Desired velocity in y direction
-		double vel_z = A2 * sin(omega2 * time); // Desired velocity in z direction
+		double vel_z = A2 * cos(omega2 * time); // Desired velocity in z direction
+
+		double d_pos_x = A0 / omega0 * sin(omega0 * time); // Desired position in x direction
+		double d_pos_y = A1 / omega1 * sin(omega1 * time); // Desired position in y direction
+		double d_pos_z = A2 / omega2 * sin(omega2 * time); // Desired position in z direction
+
 
 		// Desired Velocity vector paraeter
 		Eigen::VectorXd desired_velocity(3);
+		Eigen::VectorXd desired_position(3);
 		desired_velocity.setZero();
 
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
@@ -90,23 +100,30 @@ private:
 			if (leg == 0)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else if (leg == 1)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else if (leg == 2)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else if (leg == 3)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else
 			{
 				desired_velocity.setZero();
+				desired_position = footPosition[leg];
 			}
+
+			footPosition[leg] = desired_position;
 
 			// Unpack position and velocity from the message for the current leg:
 			Eigen::VectorXd q(3), qd(3), qdd(3);
@@ -123,17 +140,25 @@ private:
 
 			// Update the foot position based on the desired velocity and time step
 			// @todo: This is a simple integration, repalce with position controller paired with the curerent velocity controller
-			footPosition[leg] += desired_velocity * time_step_ms / 1000.0;
+			// footPosition[leg] += desired_velocity * time_step_ms / 1000.0;
 
 			// Bastardisation of world space control to deal with jacobian error over time
 			// @todo: replace with proper jacobian handler
-			Eigen::Vector3d position_error = footPosition[leg] - footPositionActual[leg];
-			Eigen::Vector3d corrected_velocity = Kp_cartesian * position_error + desired_velocity;
+
+			Eigen::MatrixXd jacobian = computeJacobian(q, leg);
+			footVelocityActual[leg] = jacobian * qd;
+
+			Eigen::Vector3d Force = Kp_cartesian.cwiseProduct(desired_position - footPositionActual[leg]) +
+                  			        Kd_cartesian.cwiseProduct(desired_velocity - footVelocityActual[leg]);
+
 
 			// Use calculated jacobian and pseudo-inverse to calculate joint velocities for the leg
-			Eigen::MatrixXd jacobian = computeJacobian(q, leg);
+			
+			auto jacobianTranspose = jacobian.transpose();
+			legJointTorque[leg] = jacobianTranspose * Force;
+			
 			auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
-			legJointVelocity[leg] = jacobianPseudoInverse * corrected_velocity;
+			legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
 
 			// Update leg joint positions based on the calculated velocities and time step
 			// @todo: Replace with proper position controller using IK
@@ -146,7 +171,7 @@ private:
 				control_effort.velocity[leg * 3 + joint] = legJointVelocity[leg](joint);
 				// control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
 				// control_effort.velocity[leg * 3 + joint] = 0;
-				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
+				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint] +  legJointTorque[leg](joint);
 			}
 		}
 
@@ -157,19 +182,18 @@ private:
 		time += time_step_ms / 1000; 
 
 		// Fill in desired position
-		// endpoint_msg.desired.x = footPosition.x();
-		// endpoint_msg.desired.y = footPosition.y();
-		// endpoint_msg.desired.z = footPosition.z();
+		endpoint_msg.desired.x = footPosition[0].x();
+		endpoint_msg.desired.y = footPosition[0].y();
+		endpoint_msg.desired.z = footPosition[0].z();
 
-		// // Fill in actual position
-		// endpoint_msg.actual.x = footPositionActual.x();
-		// endpoint_msg.actual.y = footPositionActual.y();
-		// endpoint_msg.actual.z = footPositionActual.z();
+		// Fill in actual position
+		endpoint_msg.actual.x = footPositionActual[0].x();
+		endpoint_msg.actual.y = footPositionActual[0].y();
+		endpoint_msg.actual.z = footPositionActual[0].z();
 
-		// // Fill in error (desired - actual)
-		// endpoint_msg.error.x = position_error.x();
-		// endpoint_msg.error.y = position_error.y();
-		// endpoint_msg.error.z = position_error.z();
+		endpoint_msg.error.x = footPosition[0].x() - footPositionActual[0].x();
+		endpoint_msg.error.y = footPosition[0].y() - footPositionActual[0].y();
+		endpoint_msg.error.z = footPosition[0].z() - footPositionActual[0].z();
 
 		endpoint_publisher_->publish(endpoint_msg);
 	}
@@ -253,9 +277,20 @@ private:
 			l1 *= -1;
 		}
 
-		double x0 = 0.0; // Base position in x
-		double y0 = 0.0; // Base position in y
+		double x0 = 0.2631; // Base position in x
+		double y0 = 0.1560; // Base position in y
+		// double z0 = -38.5 - 25.0; // Base position in z
 		double z0 = 0.0; // Base position in z
+
+		if (leg == 2 || leg == 3)
+		{
+			y0 *= -1; // Adjust y position for right legs
+		}
+
+		if (leg == 1 || leg == 2)
+		{
+			x0 *= -1; // Adjust x position for rear legs
+		}
 
 		// Build the transformation matrix
 		Eigen::Matrix4d fk;
@@ -493,8 +528,12 @@ private:
 
 	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
 	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
+	std::vector<Eigen::Vector3d> legJointTorque;	 // size 4, each is 3-DOF joint velocity
 	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
+	std::vector<Eigen::Vector3d> footPositionInit;		 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> footVelocityActual; // size 4, actual foot positions (x, y, z)
+
 
 	Eigen::VectorXd zero3 = Eigen::VectorXd::Zero(3);
 
@@ -509,7 +548,7 @@ private:
 	double omega0 = 2.0 * M_PI / period0;
 
 	// Waveform B parameters (y)
-	double A1 = 0.3;	  // amplitude
+	double A1 = 0.0;	  // amplitude
 	double period1 = 3.0; // period in seconds
 	double omega1 = 2.0 * M_PI / period1;
 
@@ -518,7 +557,12 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double Kp_cartesian = 0.0;
+	// double Kp_cartesian = 2000.1;
+	// double Kd_cartesian = 40.00001;
+
+	const Eigen::Vector3d Kp_cartesian = Eigen::Vector3d(2000.0, 2000.0, 8000.0);
+	const Eigen::Vector3d Kd_cartesian = Eigen::Vector3d(40.0, 40.0, 80.0);
+
 };
 
 int main(int argc, char **argv)

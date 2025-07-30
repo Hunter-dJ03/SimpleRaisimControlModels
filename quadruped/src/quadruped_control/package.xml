@@ -3,7 +3,8 @@
 <package format="3">
   <name>quadruped_control</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Contains the primary control node responsible generating joint-level control commands for a quadruped robot from foot trajectories.
+  </description>
   <maintainer email="hunter.dejong03@gmail.com">hunter</maintainer>
   <license>TODO: License declaration</license>
 

@@ -3,7 +3,7 @@
 <package format="3">
   <name>quadruped_bringup</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Provides launch and configuration files to initialize and bring up the quadruped robot system in simulation or on hardware</description>
   <maintainer email="hunter.dejong03@gmail.com">hunter</maintainer>
   <license>TODO: License declaration</license>
 

@@ -3,7 +3,7 @@
 <package format="3">
   <name>quadruped_interfaces</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Defines custom ROS 2 message types used for communication between various nodes in the quadruped robot system</description>
   <maintainer email="hunter.dejong03@gmail.com">hunter</maintainer>
   <license>TODO: License declaration</license>
 

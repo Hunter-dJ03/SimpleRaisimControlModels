@@ -9,29 +9,33 @@ from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # paths
+    # Set up paths to the necessary configuration files and packages
     robot_description_path = get_package_share_directory("quadruped_description")
     operation_path = get_package_share_directory("quadruped_bringup")
     simulation_path = get_package_share_directory("quadruped_simulation")
     
+    # Load config for leg configuration
     leg_config = os.path.join(
         robot_description_path,
         'config',
         'leg_config.yaml'
         )
     
+    # Load config for operationparameters
     operation_params = os.path.join(
         operation_path,
         'config',
         'operation.yaml'
         )
     
+    # Load config for simulation parameters
     simulation_params = os.path.join(
         simulation_path,
         'config',
         'simulation.yaml'
         )
     
+    # Include the Foxglove launch file
     foxglove_pkg_share     = get_package_share_directory("foxglove_bridge")
     foxglove_launch_file   = os.path.join(foxglove_pkg_share, "launch", "foxglove_bridge_launch.xml")
 
@@ -41,7 +45,7 @@ def generate_launch_description():
         launch_arguments={"port": "8765"}.items()
     )
 
-    # Your nodes, but delayed until after Foxglove
+    # Setup raisim node
     raisim_node = Node(
         package="quadruped_simulation",
         executable="raisim_bridge",
@@ -54,6 +58,8 @@ def generate_launch_description():
             simulation_params
         ]
     )
+
+    # Setup control node
     control_node = Node(
         package="quadruped_control",
         executable="control_node",
@@ -61,16 +67,15 @@ def generate_launch_description():
         output="screen",
         parameters=[
             leg_config, 
-            operation_params,
-            
+            operation_params,   
         ]
     )
 
     return LaunchDescription([
-        # 1) start Foxglove immediately
+        # Start Foxglove immediately for visualization
         foxglove,
 
-        # 2) wait 2s, then fire off your two nodes
+        # After a delay, start the raisim node and control node
         TimerAction(
             period=2.0,
             actions=[raisim_node, control_node]

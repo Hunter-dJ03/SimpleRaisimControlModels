@@ -3,7 +3,7 @@
 <package format="3">
   <name>quadruped_description</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Defines the physical configuration, URDF model, and associated resources for the quadruped robot</description>
   <maintainer email="hunter.dejong03@gmail.com">hunter</maintainer>
   <license>TODO: License declaration</license>
 

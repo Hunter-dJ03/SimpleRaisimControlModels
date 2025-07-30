@@ -90,19 +90,16 @@ public:
 		robot = world.addArticulatedSystem(urdf_file);
 		robot->setName("Quadruped Leg");
 
-		// Remove Collision Meshes
+		// Remove Collision Meshes between adjacent links
         robot->ignoreCollisionBetween(0, 1); // Body to Coxa 1
 		robot->ignoreCollisionBetween(1, 2); // Coxa 1 to Femur 1
         robot->ignoreCollisionBetween(2, 3); // Femur 1 to Tibia 1
-
 		robot->ignoreCollisionBetween(0, 4); // Body to Coxa 2
 		robot->ignoreCollisionBetween(4, 5); // Coxa 2 to Femur 2
 		robot->ignoreCollisionBetween(5, 6); // Femur 2 to Tibia 2
-
 		robot->ignoreCollisionBetween(0, 7); // Body to Coxa 3
 		robot->ignoreCollisionBetween(7, 8); // Coxa 3 to Femur 3
 		robot->ignoreCollisionBetween(8, 9); // Femur 3 to Tibia 3
-
 		robot->ignoreCollisionBetween(0, 10); // Body to Coxa 4
 		robot->ignoreCollisionBetween(10, 11); // Coxa 4 to Femur 4
 		robot->ignoreCollisionBetween(11, 12); // Femur 4 to Tibia 4
@@ -117,7 +114,6 @@ public:
 		robot->setGeneralizedCoordinate(init_state);
 		robot->setGeneralizedVelocity(gv);
 		robot->setGeneralizedForce(gf);
-
 
 		// CoM Ball Display
 		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1,0,0,1);
@@ -155,13 +151,20 @@ public:
 		startTime = std::chrono::high_resolution_clock::now();
 	}
 
+	/*
+	* Destructor to clean up resources and safely shut down the Raisim server
+	*/
 	~RaisimBridge() override
 	{
 		// Call cleanup function
 		cleanup();
 	}
 
-	// Function to safely kill the simulator
+	/*
+	* Cleanup function to ensure the Raisim server is properly shut down
+	* This function is called in the destructor and can also be called manually
+	* It calculates the total simulation time and logs it before shutting down the server
+	*/
 	void cleanup()
 	{
 		// If shutdown hasnt occured already
@@ -183,7 +186,10 @@ public:
 	}
 
 private:
-	// Main simulation loop
+	/*
+	* Function to update the simulation and publish joint states
+	* This function is called at a fixed time interval defined by the timer
+	*/
 	void update()
 	{
 		// Step simulation
@@ -195,13 +201,9 @@ private:
 		gv = robot->getGeneralizedVelocity().e();
 		gf = robot->getGeneralizedForce().e();
 
-
-
+		// Get Centre of Mass (COM) position and update visual sphere
 		auto com = robot->getCOM();
-		RCLCPP_INFO(this->get_logger(), "COM Position: [%f, %f, %f]", com[0], com[1], com[2]);
-
 		comSphere->setPosition(com[0], com[1], com[2]);
-
 
 		// Setup the joinstate message
 		sensor_msgs::msg::JointState js;
@@ -239,7 +241,14 @@ private:
 		joint_state_pub->publish(js);
 	}
 
-	// Reads commands from the control node and sends to the simulation
+
+	/*
+	* Callback function to handle incoming joint effort commands
+	* This function is triggered when a new message is received on the "joint_desired_control" topic
+	* It applies the control commands to the robot's joints using a PD control law and feedforward effort
+	*
+	* @param msg The incoming message containing joint positions, velocities, and efforts
+	*/
 	void effortCommandCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
 
@@ -278,31 +287,31 @@ private:
 		robot->setGeneralizedForce(tau);
 	}
 
+	// Raisim control variables
 	bool shutdown_called_ = false;
 	int time_step;
 	raisim::World world;
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
+	Eigen::VectorXd gc, gv, gf, damping, init_state;
 
-
-
+	// Declare ROS2 publishers, sibscribers and timers
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
 	rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr joint_cmd_sub;
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr desired_cmd_sub_;
-
 	rclcpp::TimerBase::SharedPtr timer_;
 
-	Eigen::VectorXd gc, gv, gf, damping, init_state;
-
+	// Declare internal timer variables
 	std::chrono::_V2::system_clock::time_point startTime;
 
+	// Declare parameters for simulation and control
 	float time_step_ms;
 	bool fixed_robot_body;
 
+	// PD Control Gains
 	const double p_gain[12] = {280.0, 280.0, 380.0, 280.0, 280.0, 380.0, 280.0, 280.0, 380.0, 280.0, 280.0, 380.0};
 	const double d_gain[12] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
-
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 

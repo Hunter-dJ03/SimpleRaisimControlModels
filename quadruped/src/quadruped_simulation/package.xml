@@ -3,7 +3,7 @@
 <package format="3">
   <name>quadruped_simulation</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Provides a bridge between ROS 2 and Raisim to simulate robot dynamics, publish joint states, and apply joint-level control inputs</description>
   <maintainer email="hunter.dejong03@gmail.com">hunter</maintainer>
   <license>TODO: License declaration</license>
 

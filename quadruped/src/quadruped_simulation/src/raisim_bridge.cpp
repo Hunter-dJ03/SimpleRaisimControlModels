@@ -203,6 +203,7 @@ private:
 
 		// Get Centre of Mass (COM) position and update visual sphere
 		auto com = robot->getCOM();
+		// RCLCPP_INFO(this->get_logger(), "COM Position: [%f, %f, %f]", com[0], com[1], com[2]);
 		comSphere->setPosition(com[0], com[1], com[2]);
 
 		// Setup the joinstate message

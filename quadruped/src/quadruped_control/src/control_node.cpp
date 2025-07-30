@@ -253,9 +253,17 @@ private:
 			l1 *= -1;
 		}
 
-		double x0 = 0.0; // Base position in x
-		double y0 = 0.0; // Base position in y
-		double z0 = 0.0; // Base position in z
+		double x0 = 263.1; // Base position in x
+		double y0 = 156.0; // Base position in y
+		double z0 = -38.50000 - 25.0; // Base position in z
+
+		if (leg == 2 || leg == 3) {
+			y0 = -y0;
+		}
+
+		if (leg == 1 || leg == 2) {
+			x0 = -x0;
+		}
 
 		// Build the transformation matrix
 		Eigen::Matrix4d fk;

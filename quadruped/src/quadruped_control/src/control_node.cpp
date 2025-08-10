@@ -18,8 +18,11 @@ public:
 		// Initialise variables for leg joint positions, velocities, and foot positions
 		legJointPosition.resize(4);
 		legJointVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		legJointTorque = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		footPositionInit = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		footVelocityActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
 		// Fill legJointPosition from init_pos
 		for (int leg = 0; leg < 4; ++leg)
@@ -35,6 +38,7 @@ public:
 				leg);
 
 			footPosition[leg] = footPositionActual[leg];
+			footPositionInit[leg] = footPositionActual[leg];
 		}
 
 		// Set up subscription to encoder feedback for joint states
@@ -54,12 +58,12 @@ public:
 
 private:
 	/*
-     * Callback that clauclated the desired joint states based on the current joint states and desired trajectory.
-     *  Current implements each leg as a single 3-DOF joint with a desired trajectory.
-	 * 
+	 * Callback that clauclated the desired joint states based on the current joint states and desired trajectory.
+	 *  Current implements each leg as a single 3-DOF joint with a desired trajectory.
+	 *
 	 * @param msg The message containing the joint states.
-	 *  
-     */
+	 *
+	 */
 	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
 		// Create control effort message
@@ -77,10 +81,15 @@ private:
 		// Temporary velocities for foot
 		double vel_x = A0 * cos(omega0 * time); // Desired velocity in x direction
 		double vel_y = A1 * cos(omega1 * time); // Desired velocity in y direction
-		double vel_z = A2 * sin(omega2 * time); // Desired velocity in z direction
+		double vel_z = - A2 * sin(omega2 * time); // Desired velocity in z direction
+
+		double d_pos_x = A0 / omega0 * sin(omega0 * time); // Desired position in x direction
+		double d_pos_y = A1 / omega1 * sin(omega1 * time); // Desired position in y direction
+		double d_pos_z = A2 / omega2 * cos(omega2 * time); // Desired position in z direction
 
 		// Desired Velocity vector paraeter
 		Eigen::VectorXd desired_velocity(3);
+		Eigen::VectorXd desired_position(3);
 		desired_velocity.setZero();
 
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
@@ -90,23 +99,30 @@ private:
 			if (leg == 0)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else if (leg == 1)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else if (leg == 2)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else if (leg == 3)
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
+				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
 			else
 			{
 				desired_velocity.setZero();
+				desired_position = footPosition[leg];
 			}
+
+			footPosition[leg] = desired_position;
 
 			// Unpack position and velocity from the message for the current leg:
 			Eigen::VectorXd q(3), qd(3), qdd(3);
@@ -123,22 +139,19 @@ private:
 
 			// Update the foot position based on the desired velocity and time step
 			// @todo: This is a simple integration, repalce with position controller paired with the curerent velocity controller
-			footPosition[leg] += desired_velocity * time_step_ms / 1000.0;
+			// footPosition[leg] += desired_velocity * time_step_ms / 1000.0;
 
 			// Bastardisation of world space control to deal with jacobian error over time
 			// @todo: replace with proper jacobian handler
-			Eigen::Vector3d position_error = footPosition[leg] - footPositionActual[leg];
-			Eigen::Vector3d corrected_velocity = Kp_cartesian * position_error + desired_velocity;
+
 
 			// Use calculated jacobian and pseudo-inverse to calculate joint velocities for the leg
 			Eigen::MatrixXd jacobian = computeJacobian(q, leg);
 			auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
-			legJointVelocity[leg] = jacobianPseudoInverse * corrected_velocity;
+			legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
 
-			// Update leg joint positions based on the calculated velocities and time step
-			// @todo: Replace with proper position controller using IK
-			legJointPosition[leg] += legJointVelocity[leg] * time_step_ms / 1000.0;
-
+			legJointPosition[leg] = inverseKinematics(desired_position, leg);
+			
 			// Populate control effort message for the leg
 			for (int joint = 0; joint < 3; ++joint)
 			{
@@ -154,35 +167,34 @@ private:
 		desired_control_pub_->publish(control_effort);
 
 		// Increment time by 1 ms per callback
-		time += time_step_ms / 1000; 
+		time += time_step_ms / 1000;
 
 		// Fill in desired position
-		// endpoint_msg.desired.x = footPosition.x();
-		// endpoint_msg.desired.y = footPosition.y();
-		// endpoint_msg.desired.z = footPosition.z();
+		endpoint_msg.desired.x = footPosition[0].x();
+		endpoint_msg.desired.y = footPosition[0].y();
+		endpoint_msg.desired.z = footPosition[0].z();
 
-		// // Fill in actual position
-		// endpoint_msg.actual.x = footPositionActual.x();
-		// endpoint_msg.actual.y = footPositionActual.y();
-		// endpoint_msg.actual.z = footPositionActual.z();
+		// Fill in actual position
+		endpoint_msg.actual.x = footPositionActual[0].x();
+		endpoint_msg.actual.y = footPositionActual[0].y();
+		endpoint_msg.actual.z = footPositionActual[0].z();
 
-		// // Fill in error (desired - actual)
-		// endpoint_msg.error.x = position_error.x();
-		// endpoint_msg.error.y = position_error.y();
-		// endpoint_msg.error.z = position_error.z();
+		endpoint_msg.error.x = footPosition[0].x() - footPositionActual[0].x();
+		endpoint_msg.error.y = footPosition[0].y() - footPositionActual[0].y();
+		endpoint_msg.error.z = footPosition[0].z() - footPositionActual[0].z();
 
 		endpoint_publisher_->publish(endpoint_msg);
 	}
 
 	/*
-	* Computes the Jacobian matrix for a 3-DOF leg based on the joint angles.
-	* Contains the full 6x3 matric however only using linear velocity components
-	*
-	* @param q The joint angles of the leg (3 DOF).
-	* @param leg The index of the leg (0-3).
-	*
-	* @return The Jacobian matrix (3x3) for the leg.
-	*/
+	 * Computes the Jacobian matrix for a 3-DOF leg based on the joint angles.
+	 * Contains the full 6x3 matric however only using linear velocity components
+	 *
+	 * @param q The joint angles of the leg (3 DOF).
+	 * @param leg The index of the leg (0-3).
+	 *
+	 * @return The Jacobian matrix (3x3) for the leg.
+	 */
 	Eigen::MatrixXd computeJacobian(const Eigen::VectorXd &q,
 									const int leg)
 	{
@@ -227,14 +239,14 @@ private:
 	}
 
 	/*
-	* Computes the position of foot position for a 3-DOF leg based on the joint angles.
-	* Contains the full 4x4 transformation matrix however only using position atm
-	*
-	* @param q The joint angles of the leg (3 DOF).
-	* @param leg The index of the leg (0-3).
-	*
-	* @return The position of the foot in world coordinates (3D vector).
-	*/
+	 * Computes the position of foot position for a 3-DOF leg based on the joint angles.
+	 * Contains the full 4x4 transformation matrix however only using position atm
+	 *
+	 * @param q The joint angles of the leg (3 DOF).
+	 * @param leg The index of the leg (0-3).
+	 *
+	 * @return The position of the foot in world coordinates (3D vector).
+	 */
 	Eigen::VectorXd forwardKinematics(const Eigen::Vector3d &q,
 									  const int leg)
 	{
@@ -253,9 +265,20 @@ private:
 			l1 *= -1;
 		}
 
-		double x0 = 0.0; // Base position in x
-		double y0 = 0.0; // Base position in y
+		double x0 = 0.2631; // Base position in x
+		double y0 = 0.1560; // Base position in y
+		// double z0 = -38.5 - 25.0; // Base position in z
 		double z0 = 0.0; // Base position in z
+
+		if (leg == 2 || leg == 3)
+		{
+			y0 *= -1; // Adjust y position for right legs
+		}
+
+		if (leg == 1 || leg == 2)
+		{
+			x0 *= -1; // Adjust x position for rear legs
+		}
 
 		// Build the transformation matrix
 		Eigen::Matrix4d fk;
@@ -281,16 +304,97 @@ private:
 	}
 
 	/*
-	* Implemetation of the Newton-Euler dynamics for a 3-DOF leg.
-	* 
-	* @param q The joint angles of the leg (3 DOF).
-	* @param qd The joint velocities of the leg (3 DOF).
-	* @param qdd The joint accelerations of the leg (3 DOF).
-	* @param g The gravitational acceleration (negative value).
-	* @param leg The index of the leg (0-3).
-	*
-	* @return The Newton-Euler dynamics vector (3D vector) containing the torques for each joint.
-	*/
+	 * Computes the inverse kinematics for a 3-DOF leg based on the desired foot position.
+	 *
+	 * @param q The joint angles of the leg (3 DOF).
+	 * @param leg The index of the leg (0-3).
+	 *
+	 * @return The joint angles that achieve the desired foot position (3D vector).
+	 */
+	Eigen::Vector3d inverseKinematics(const Eigen::Vector3d &pos,
+									  const int leg)
+	{
+		double xd = pos(0);
+		double yd = pos(1);
+		double zd = pos(2);
+
+		// Precompute useful terms
+		// // Link lengths
+		double l1 = link_lengths[0];
+		double l2 = link_lengths[1];
+		double l3 = link_lengths[2];
+
+		if (leg == 0 || leg == 1)
+		{
+			l1 *= -1;
+		}
+
+		double x0 = 0.2631; // Base position in x
+		double y0 = 0.1560; // Base position in y
+		// double z0 = -38.5 - 25.0; // Base position in z
+		double z0 = 0.0; // Base position in z
+
+		if (leg == 2 || leg == 3)
+		{
+			y0 *= -1; // Adjust y position for right legs
+		}
+
+		if (leg == 1 || leg == 2)
+		{
+			x0 *= -1; // Adjust x position for rear legs
+		}
+
+		// Calculate the joint angles using inverse kinematics
+		Eigen::Vector3d q(3);
+
+		// Relative position
+		double x = xd - x0;
+		double y = yd - y0;
+		double z = zd - z0;
+
+		// Compute q1
+		double A = std::sqrt(z * z + y * y);
+		double a1 = std::atan2(z, y);
+		double a2 = std::asin(l1 / A);
+		double a3 = M_PI / 2.0 - a2;
+
+		double q1 = a1 - a3 + M_PI;
+
+		// Rotate [x; y; z] by -q1 around X axis
+		Eigen::Matrix3d R_x;
+		R_x << 1, 0, 0,
+			0, std::cos(-q1), -std::sin(-q1),
+			0, std::sin(-q1), std::cos(-q1);
+
+		Eigen::Vector3d P = R_x * Eigen::Vector3d(x, y, z);
+
+		double x_p = P(0);
+		double z_p = P(2);
+
+		// Compute q2 and q3
+		double B = std::sqrt(x_p * x_p + z_p * z_p);
+		double b1 = std::atan2(z_p, x_p);
+		double b2 = std::acos((l2 * l2 + B * B - l3 * l3) / (2.0 * l2 * B));
+		double b3 = std::acos((l2 * l2 + l3 * l3 - B * B) / (2.0 * l2 * l3));
+
+		double q2 = b2 - b1 - M_PI;
+		double q3 = b3 - M_PI_2;
+
+		q << q1, q2, q3;
+		return q;
+	}
+
+	/*
+	 * Implemetation of the Newton-Euler dynamics for a 3-DOF leg.
+	 *
+	 * @param q The joint angles of the leg (3 DOF).
+	 * @param qd The joint velocities of the leg (3 DOF).
+	 * @param qdd The joint accelerations of the leg (3 DOF).
+	 * @param g The gravitational acceleration (negative value).
+	 * @param leg The index of the leg (0-3).
+	 *
+	 * @return The Newton-Euler dynamics vector (3D vector) containing the torques for each joint.
+	 */
 	Eigen::VectorXd NE_Dynamics(const Eigen::VectorXd &q,
 								const Eigen::VectorXd &qd,
 								const Eigen::VectorXd &qdd,
@@ -328,14 +432,14 @@ private:
 
 		R[2] << c3, -s3, 0,
 			s3, c3, 0,
-			0, 0, 1;		// R23
+			0, 0, 1; // R23
 
 		R[3].setIdentity(); // R3E (end effector)
 
 		// Joint offset in each link frame
 		std::array<Eigen::Vector3d, 4> oc;
-		oc[0] = Eigen::Vector3d::Zero();   // from frame0 to frame1
-		oc[1] = Eigen::Vector3d(0, l1, 0); // from frame1 to frame2
+		oc[0] = Eigen::Vector3d::Zero();	// from frame0 to frame1
+		oc[1] = Eigen::Vector3d(0, l1, 0);	// from frame1 to frame2
 		oc[2] = Eigen::Vector3d(l2, 0, 0);	// from frame2 to frame3
 		oc[3] = Eigen::Vector3d(0, -l3, 0); // from frame3 to end
 
@@ -493,8 +597,11 @@ private:
 
 	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
 	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
+	std::vector<Eigen::Vector3d> legJointTorque;	 // size 4, each is 3-DOF joint velocity
 	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
+	std::vector<Eigen::Vector3d> footPositionInit;	 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> footVelocityActual; // size 4, actual foot positions (x, y, z)
 
 	Eigen::VectorXd zero3 = Eigen::VectorXd::Zero(3);
 
@@ -505,7 +612,7 @@ private:
 
 	// Waveform A parameters (x)
 	double A0 = 0.0;	  // amplitude
-	double period0 = 3.0; // period in seconds
+	double period0 = 6.0; // period in seconds
 	double omega0 = 2.0 * M_PI / period0;
 
 	// Waveform B parameters (y)
@@ -518,7 +625,11 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double Kp_cartesian = 0.0;
+	// double Kp_cartesian = 2000.1;
+	// double Kd_cartesian = 40.00001;
+
+	const Eigen::Vector3d Kp_cartesian = Eigen::Vector3d(2000.0, 2000.0, 8000.0);
+	const Eigen::Vector3d Kd_cartesian = Eigen::Vector3d(40.0, 40.0, 80.0);
 };
 
 int main(int argc, char **argv)

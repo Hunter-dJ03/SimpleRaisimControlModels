@@ -91,16 +91,16 @@ public:
 		robot->setName("Quadruped Leg");
 
 		// Remove Collision Meshes between adjacent links
-        robot->ignoreCollisionBetween(0, 1); // Body to Coxa 1
-		robot->ignoreCollisionBetween(1, 2); // Coxa 1 to Femur 1
-        robot->ignoreCollisionBetween(2, 3); // Femur 1 to Tibia 1
-		robot->ignoreCollisionBetween(0, 4); // Body to Coxa 2
-		robot->ignoreCollisionBetween(4, 5); // Coxa 2 to Femur 2
-		robot->ignoreCollisionBetween(5, 6); // Femur 2 to Tibia 2
-		robot->ignoreCollisionBetween(0, 7); // Body to Coxa 3
-		robot->ignoreCollisionBetween(7, 8); // Coxa 3 to Femur 3
-		robot->ignoreCollisionBetween(8, 9); // Femur 3 to Tibia 3
-		robot->ignoreCollisionBetween(0, 10); // Body to Coxa 4
+		robot->ignoreCollisionBetween(0, 1);   // Body to Coxa 1
+		robot->ignoreCollisionBetween(1, 2);   // Coxa 1 to Femur 1
+		robot->ignoreCollisionBetween(2, 3);   // Femur 1 to Tibia 1
+		robot->ignoreCollisionBetween(0, 4);   // Body to Coxa 2
+		robot->ignoreCollisionBetween(4, 5);   // Coxa 2 to Femur 2
+		robot->ignoreCollisionBetween(5, 6);   // Femur 2 to Tibia 2
+		robot->ignoreCollisionBetween(0, 7);   // Body to Coxa 3
+		robot->ignoreCollisionBetween(7, 8);   // Coxa 3 to Femur 3
+		robot->ignoreCollisionBetween(8, 9);   // Femur 3 to Tibia 3
+		robot->ignoreCollisionBetween(0, 10);  // Body to Coxa 4
 		robot->ignoreCollisionBetween(10, 11); // Coxa 4 to Femur 4
 		robot->ignoreCollisionBetween(11, 12); // Femur 4 to Tibia 4
 
@@ -110,13 +110,17 @@ public:
 		gf = Eigen::VectorXd::Zero(robot->getDOF());
 		// damping = Eigen::VectorXd::Zero(robot->getDOF());
 
+		q_ref = joint_pos;
+		qd_ref = Eigen::VectorXd::Zero(robot->getDOF() - 6 * fixed_robot_body);
+		tau_comp = Eigen::VectorXd::Zero(robot->getDOF() - 6 * fixed_robot_body);
+
 		// Set siulation position and velocity
 		robot->setGeneralizedCoordinate(init_state);
 		robot->setGeneralizedVelocity(gv);
 		robot->setGeneralizedForce(gf);
 
 		// CoM Ball Display
-		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1,0,0,1);
+		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1, 0, 0, 1);
 
 		// Setup raisim server
 		server.launchServer(8080);
@@ -152,8 +156,8 @@ public:
 	}
 
 	/*
-	* Destructor to clean up resources and safely shut down the Raisim server
-	*/
+	 * Destructor to clean up resources and safely shut down the Raisim server
+	 */
 	~RaisimBridge() override
 	{
 		// Call cleanup function
@@ -161,10 +165,10 @@ public:
 	}
 
 	/*
-	* Cleanup function to ensure the Raisim server is properly shut down
-	* This function is called in the destructor and can also be called manually
-	* It calculates the total simulation time and logs it before shutting down the server
-	*/
+	 * Cleanup function to ensure the Raisim server is properly shut down
+	 * This function is called in the destructor and can also be called manually
+	 * It calculates the total simulation time and logs it before shutting down the server
+	 */
 	void cleanup()
 	{
 		// If shutdown hasnt occured already
@@ -187,15 +191,11 @@ public:
 
 private:
 	/*
-	* Function to update the simulation and publish joint states
-	* This function is called at a fixed time interval defined by the timer
-	*/
+	 * Function to update the simulation and publish joint states
+	 * This function is called at a fixed time interval defined by the timer
+	 */
 	void update()
 	{
-		// Step simulation
-		server.integrateWorldThreadSafe();
-		// return;
-
 		// Update internal state vectors
 		gc = robot->getGeneralizedCoordinate().e();
 		gv = robot->getGeneralizedVelocity().e();
@@ -214,11 +214,17 @@ private:
 		js.velocity.resize(dof);
 		js.effort.resize(dof);
 
+
+		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
+
 		if (fixed_robot_body)
 		{
-			// Add each joint to the jointstate message
+
 			for (int i = 0; i < dof; ++i)
 			{
+				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
+				
+				// Add each joint to the jointstate message
 				js.name[i] = "joint_" + std::to_string(i); // Generic joint name
 				js.position[i] = gc[i];
 				js.velocity[i] = gv[i];
@@ -227,9 +233,11 @@ private:
 		}
 		else
 		{
-			// Add each joint to the jointstate message
 			for (int i = 0; i < dof - 6; ++i)
 			{
+				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
+
+				// Add each joint to the jointstate message
 				js.name[i] = "joint_" + std::to_string(i); // Generic joint name
 				js.position[i] = gc[i + 7];
 				js.velocity[i] = gv[i + 6];
@@ -237,54 +245,62 @@ private:
 			}
 		}
 
+		// Send forces to the simulation
+		robot->setGeneralizedForce(tau);
+
 		// Publish joint states
 		joint_state_pub->publish(js);
+
+		// Step simulation
+		server.integrateWorldThreadSafe();
 	}
 
-
 	/*
-	* Callback function to handle incoming joint effort commands
-	* This function is triggered when a new message is received on the "joint_desired_control" topic
-	* It applies the control commands to the robot's joints using a PD control law and feedforward effort
-	*
-	* @param msg The incoming message containing joint positions, velocities, and efforts
-	*/
+	 * Callback function to handle incoming joint effort commands
+	 * This function is triggered when a new message is received on the "joint_desired_control" topic
+	 * It saves the control reference commands to memory for the next simulation step
+	 *
+	 * @param msg The incoming message containing joint positions, velocities, and efforts
+	 */
 	void effortCommandCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
 
 		// Make sure control commands match the robot dof
 		if (msg->position.size() != robot->getDOF() - 6 * !fixed_robot_body)
 		{
-            RCLCPP_WARN(this->get_logger(), "Received effort command of wrong size: %ld (expected %ld)", msg->position.size(), robot->getDOF() - 6 * !fixed_robot_body);
+			RCLCPP_WARN(this->get_logger(), "Received effort command of wrong size: %ld (expected %ld)", msg->position.size(), robot->getDOF() - 6 * !fixed_robot_body);
 			return;
 		}
 
-		// Move forces from message into usable vector format
-		Eigen::VectorXd tau = Eigen::VectorXd::Zero(robot->getDOF());
+		for (size_t i = 0; i < msg->position.size(); ++i)
+		{
+			q_ref[i] = msg->position[i];
+			qd_ref[i] = msg->velocity[i];
+			tau_comp[i] = msg->effort[i];
+		}
 
-		if (fixed_robot_body)
-		{
-			for (size_t i = 0; i < msg->position.size(); ++i)
-			{
-				// PD control law
-				tau[i] = p_gain[i] * (msg->position[i] - gc[i]) + d_gain[i] * (msg->velocity[i] - gv[i]) + msg->effort[i];
-				// tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
-				// tau[i+6] = 1;
-			}
-		}
-		else
-		{
-			for (size_t i = 0; i < msg->position.size(); ++i)
-			{
-				// PD control law
-				tau[i + 6] = p_gain[i] * (msg->position[i] - gc[i + 7]) + d_gain[i] * (msg->velocity[i] - gv[i + 6]) + msg->effort[i];
-				// tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
-				// tau[i+6] = 1;
-			}
-		}
+		return;
+
+		// if (fixed_robot_body)
+		// {
+		// 	for (size_t i = 0; i < msg->position.size(); ++i)
+		// 	{
+
+		// 	}
+		// }
+		// else
+		// {
+		// 	for (size_t i = 0; i < msg->position.size(); ++i)
+		// 	{
+		// 		// PD control law
+		// 		tau[i + 6] = p_gain[i] * (msg->position[i] - gc[i + 7]) + d_gain[i] * (msg->velocity[i] - gv[i + 6]) + msg->effort[i];
+		// 		// tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
+		// 		// tau[i+6] = 1;
+		// 	}
+		// }
 
 		// Send forces to the simulation
-		robot->setGeneralizedForce(tau);
+		// robot->setGeneralizedForce(tau);
 	}
 
 	// Raisim control variables
@@ -295,6 +311,8 @@ private:
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
 	Eigen::VectorXd gc, gv, gf, damping, init_state;
+
+	Eigen::VectorXd q_ref, qd_ref, tau_comp;
 
 	// Declare ROS2 publishers, sibscribers and timers
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
@@ -314,7 +332,6 @@ private:
 	const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
 };
 
 int main(int argc, char **argv)

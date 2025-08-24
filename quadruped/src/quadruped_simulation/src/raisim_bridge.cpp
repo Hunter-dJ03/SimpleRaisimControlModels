@@ -2,6 +2,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <rosgraph_msgs/msg/clock.hpp>
 
 #include <raisim/World.hpp>
 #include <raisim/RaisimServer.hpp>
@@ -63,7 +64,12 @@ public:
 		}
 
 		// Set world timestep for simulation
-		world.setTimeStep(time_step_ms / 1000.0f);
+		dt_ = time_step_ms * 1e-3;               // seconds
+		world.setTimeStep(dt_);    
+		
+		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
+			"/clock", rclcpp::QoS(10).best_effort());
+		
 		[[maybe_unused]] auto ground = world.addGround(0);
 
 		// Variable Gravity option
@@ -111,8 +117,8 @@ public:
 		// damping = Eigen::VectorXd::Zero(robot->getDOF());
 
 		q_ref = joint_pos;
-		qd_ref = Eigen::VectorXd::Zero(robot->getDOF() - 6 * fixed_robot_body);
-		tau_comp = Eigen::VectorXd::Zero(robot->getDOF() - 6 * fixed_robot_body);
+		qd_ref = Eigen::VectorXd::Zero(N_joints);
+		tau_comp = Eigen::VectorXd::Zero(N_joints);
 
 		// Set siulation position and velocity
 		robot->setGeneralizedCoordinate(init_state);
@@ -179,6 +185,9 @@ public:
 			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 			RCLCPP_INFO(this->get_logger(), "Ran for %ld ms", duration);
 
+			RCLCPP_INFO(this->get_logger(), "Sim time: %fms", duration/count);
+
+
 			RCLCPP_INFO(this->get_logger(), "Shutting down RaisimBridge");
 
 			// Kill the raisim server
@@ -196,6 +205,8 @@ private:
 	 */
 	void update()
 	{
+		// RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
+
 		// Update internal state vectors
 		gc = robot->getGeneralizedCoordinate().e();
 		gv = robot->getGeneralizedVelocity().e();
@@ -251,6 +262,8 @@ private:
 		// Publish joint states
 		joint_state_pub->publish(js);
 
+		count++;
+
 		// Step simulation
 		server.integrateWorldThreadSafe();
 	}
@@ -264,6 +277,7 @@ private:
 	 */
 	void effortCommandCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
+		RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
 
 		// Make sure control commands match the robot dof
 		if (msg->position.size() != robot->getDOF() - 6 * !fixed_robot_body)
@@ -280,27 +294,6 @@ private:
 		}
 
 		return;
-
-		// if (fixed_robot_body)
-		// {
-		// 	for (size_t i = 0; i < msg->position.size(); ++i)
-		// 	{
-
-		// 	}
-		// }
-		// else
-		// {
-		// 	for (size_t i = 0; i < msg->position.size(); ++i)
-		// 	{
-		// 		// PD control law
-		// 		tau[i + 6] = p_gain[i] * (msg->position[i] - gc[i + 7]) + d_gain[i] * (msg->velocity[i] - gv[i + 6]) + msg->effort[i];
-		// 		// tau[i+6] = std::clamp(tau[i+6], -30.0, 30.0); // Clamp to max effort
-		// 		// tau[i+6] = 1;
-		// 	}
-		// }
-
-		// Send forces to the simulation
-		// robot->setGeneralizedForce(tau);
 	}
 
 	// Raisim control variables
@@ -325,13 +318,22 @@ private:
 
 	// Declare parameters for simulation and control
 	float time_step_ms;
+	rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_pub_;
+	int64_t sim_time_ns_ = 0;   // simulated time in nanoseconds
+	double dt_ = 0.0;           // seconds, equals world timestep
+
+
 	bool fixed_robot_body;
 
 	// PD Control Gains
-	const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
-	const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
+	// const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
+	// const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
+	const double p_gain[12] = {120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0};
+	const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+	double count = 0.0;
 };
 
 int main(int argc, char **argv)

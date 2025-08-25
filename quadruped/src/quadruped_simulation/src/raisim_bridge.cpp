@@ -60,12 +60,12 @@ public:
 		}
 
 		// Set world timestep for simulation
-		dt_ = pd_time_step_ms * 1e-3;               // seconds
-		world.setTimeStep(dt_);    
-		
+		dt_ = pd_time_step_ms * 1e-3; // seconds
+		world.setTimeStep(dt_);
+
 		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
 			"/clock", rclcpp::QoS(10).best_effort());
-		
+
 		[[maybe_unused]] auto ground = world.addGround(0);
 
 		// Variable Gravity option
@@ -129,10 +129,11 @@ public:
 
 		// Wait for server connection
 		RCLCPP_INFO(this->get_logger(), "Awaiting Connection to raisim server");
-		while (!server.isConnected()) {
+		while (!server.isConnected())
+		{
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		};
-	
+
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
@@ -181,11 +182,11 @@ public:
 			// Calculate simulation time displacement
 			auto endTime = std::chrono::high_resolution_clock::now();
 			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-			RCLCPP_INFO(this->get_logger(), "Ran for %ld ms", duration);
-
-			RCLCPP_INFO(this->get_logger(), "Simulated time: %.3f s", sim_time_ns_ * 1e-9);
-
-			RCLCPP_INFO(this->get_logger(), "Shutting down RaisimBridge");
+			RCLCPP_INFO(
+				this->get_logger(),
+				"\nRan for %.3f s\nSimulated time: %.3f s\nShutting down RaisimBridge",
+				duration * 1e-3,
+				sim_time_ns_ * 1e-9);
 
 			// Kill the raisim server
 			server.killServer();
@@ -215,12 +216,12 @@ private:
 
 		// Build a single time stamp for this step in sim time
 		builtin_interfaces::msg::Time stamp;
-		stamp.sec     = static_cast<int32_t>(sim_time_ns_ / 1000000000LL);
+		stamp.sec = static_cast<int32_t>(sim_time_ns_ / 1000000000LL);
 		stamp.nanosec = static_cast<uint32_t>(sim_time_ns_ % 1000000000LL);
 
 		// Send stamp to /clock topic for sim time
 		rosgraph_msgs::msg::Clock clk;
-		clk.clock = stamp;                 
+		clk.clock = stamp;
 		clock_pub_->publish(clk);
 
 		// Setup the joinstate message
@@ -231,7 +232,7 @@ private:
 		js.velocity.resize(dof);
 		js.effort.resize(dof);
 
-		//Initialize torque vector
+		// Initialize torque vector
 		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
 
 		if (fixed_robot_body)
@@ -241,7 +242,7 @@ private:
 			{
 				// PD Control Law
 				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
-				
+
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
 				js.velocity[i] = gv[i];
@@ -325,9 +326,8 @@ private:
 	// Declare parameters for simulation and control
 	float pd_time_step_ms;
 	rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_pub_;
-	int64_t sim_time_ns_ = 0;   // simulated time in nanoseconds
-	double dt_ = 0.0;           // seconds, equals world timestep
-
+	int64_t sim_time_ns_ = 0; // simulated time in nanoseconds
+	double dt_ = 0.0;		  // seconds, equals world timestep
 
 	bool fixed_robot_body;
 

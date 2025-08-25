@@ -35,14 +35,18 @@ def generate_launch_description():
         'simulation.yaml'
         )
     
-    # Include the Foxglove launch file
-    foxglove_pkg_share     = get_package_share_directory("foxglove_bridge")
-    foxglove_launch_file   = os.path.join(foxglove_pkg_share, "launch", "foxglove_bridge_launch.xml")
-
-    # Foxglove include (runs immediately)
-    foxglove = IncludeLaunchDescription(
-        XMLLaunchDescriptionSource(foxglove_launch_file),
-        launch_arguments={"port": "8765"}.items()
+    # Foxglove as a Node with quiet logging and no rosout publisher
+    foxglove = Node(
+        package="foxglove_bridge",
+        executable="foxglove_bridge",
+        name="foxglove_bridge_1",          # unique name avoids duplicate logger warning
+        output="log",                      # logs go to ~/.ros/log instead of console
+        parameters=[{"port": 8765}],
+        arguments=[
+            "--ros-args",
+            "--log-level", "warn",
+            "--disable-rosout-logs"        # do not publish to /rosout
+        ],
     )
 
     # Setup raisim node
@@ -78,6 +82,6 @@ def generate_launch_description():
         # After a delay, start the raisim node and control node
         TimerAction(
             period=2.0,
-            actions=[raisim_node, control_node]
+            actions=[raisim_node, control_node],
         ),
     ])

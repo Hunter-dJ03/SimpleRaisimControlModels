@@ -55,8 +55,16 @@ public:
 		endpoint_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint", 10);
 
 		// Create timer to run the control command
-		timer_ = this->create_wall_timer(
-			std::chrono::microseconds((int)(time_step_ms * 1000)),
+		// timer_ = this->create_wall_timer(
+		// 	std::chrono::microseconds((int)(time_step_ms * 1000)),
+		// 	std::bind(&QuadrupedLegController::controlCommands, this));
+
+		timer_ = rclcpp::create_timer(
+			this->get_node_base_interface(),
+			this->get_node_timers_interface(),
+			this->get_clock(),
+			std::chrono::microseconds(2000),
+			// std::chrono::microseconds((int)(time_step_ms * 1000)),
 			std::bind(&QuadrupedLegController::controlCommands, this));
 
 		// Feedback for controller start
@@ -73,10 +81,19 @@ private:
 	 */
 	void controlCommands()
 	{
+
+		// If sim time has not started yet, do nothing
+		const auto now_ros = this->get_clock()->now();
+		if (now_ros.seconds() == 0.0)
+			return;
+
+		// one stamp for all messages this tick
+		const auto stamp = now_ros;
+
 		// return;
 		// Create control effort message
 		sensor_msgs::msg::JointState control_effort;
-		control_effort.header.stamp = now();
+		control_effort.header.stamp = stamp;
 		control_effort.name.resize(dof);
 		control_effort.position.resize(dof);
 		control_effort.velocity.resize(dof);
@@ -84,16 +101,18 @@ private:
 
 		// Create endpoint message
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
-		endpoint_msg.header.stamp = now();
+		endpoint_msg.header.stamp = stamp;
+
+		const double t = now_ros.seconds();
 
 		// Temporary velocities for foot
-		double vel_x = A0 * cos(omega0 * time); // Desired velocity in x direction
-		double vel_y = A1 * cos(omega1 * time); // Desired velocity in y direction
-		double vel_z = - A2 * sin(omega2 * time); // Desired velocity in z direction
+		double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
+		double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
+		double vel_z = A2 * sin(omega2 * t); // Desired velocity in z direction
 
-		double d_pos_x = A0 / omega0 * sin(omega0 * time); // Desired position in x direction
-		double d_pos_y = A1 / omega1 * sin(omega1 * time); // Desired position in y direction
-		double d_pos_z = A2 / omega2 * cos(omega2 * time); // Desired position in z direction
+		double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
+		double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
+		double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
 
 		// Desired Velocity vector paraeter
 		Eigen::VectorXd desired_velocity(3);
@@ -132,11 +151,6 @@ private:
 
 			footPosition[leg] = desired_position;
 
-			// Unpack position and velocity from the message for the current leg:
-			Eigen::VectorXd qdd(3);
-			// q << msg->position[0 + leg * 3], msg->position[1 + leg * 3], msg->position[2 + leg * 3];
-			// qd << msg->velocity[0 + leg * 3], msg->velocity[1 + leg * 3], msg->velocity[2 + leg * 3];
-
 			// Calculate the gravity and corcent torques
 			Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
 			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0, leg);
@@ -145,21 +159,13 @@ private:
 			Eigen::Vector3d fk = forwardKinematics(q[leg], leg);
 			footPositionActual[leg] = fk;
 
-			// Update the foot position based on the desired velocity and time step
-			// @todo: This is a simple integration, repalce with position controller paired with the curerent velocity controller
-			// footPosition[leg] += desired_velocity * time_step_ms / 1000.0;
-
-			// Bastardisation of world space control to deal with jacobian error over time
-			// @todo: replace with proper jacobian handler
-
-
 			// Use calculated jacobian and pseudo-inverse to calculate joint velocities for the leg
 			Eigen::MatrixXd jacobian = computeJacobian(q[leg], leg);
 			auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
 			legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
 
 			legJointPosition[leg] = inverseKinematics(desired_position, leg);
-			
+
 			// Populate control effort message for the leg
 			for (int joint = 0; joint < 3; ++joint)
 			{
@@ -175,7 +181,7 @@ private:
 		desired_control_pub_->publish(control_effort);
 
 		// Increment time by 1 ms per callback
-		time += time_step_ms / 1000;
+		// time += time_step_ms / 1000;
 
 		// Fill in desired position
 		endpoint_msg.desired.x = footPosition[0].x();
@@ -636,14 +642,14 @@ private:
 	std::vector<Eigen::Vector3d> footPositionInit;	 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> footVelocityActual; // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> q; // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> qd; // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
 
 	Eigen::VectorXd zero3 = Eigen::VectorXd::Zero(3);
 
 	double gravity = -9.81;
 	float time_step_ms;
-	float time = 0;
+	// float time = 0;
 	int dof = 12;
 
 	// Waveform A parameters (x)
@@ -652,12 +658,12 @@ private:
 	double omega0 = 2.0 * M_PI / period0;
 
 	// Waveform B parameters (y)
-	double A1 = 0.3;	  // amplitude
+	double A1 = 0.2;	  // amplitude
 	double period1 = 3.0; // period in seconds
 	double omega1 = 2.0 * M_PI / period1;
 
 	// Waveform C parameters (z)
-	double A2 = 0.3;	  // amplitude
+	double A2 = 0.2;	  // amplitude
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 

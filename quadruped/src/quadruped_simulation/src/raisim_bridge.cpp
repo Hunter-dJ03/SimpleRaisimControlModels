@@ -2,7 +2,9 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/float64.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+
 #include <rosgraph_msgs/msg/clock.hpp>
+#include <builtin_interfaces/msg/time.hpp>
 
 #include <raisim/World.hpp>
 #include <raisim/RaisimServer.hpp>
@@ -154,7 +156,7 @@ public:
 
 		// Create timer to update the simulation
 		timer_ = this->create_wall_timer(
-			std::chrono::microseconds((int)(time_step_ms * 1000)),
+			std::chrono::duration<double>(dt_),
 			std::bind(&RaisimBridge::update, this));
 
 		// Set start time checking dimulation time displacement
@@ -187,6 +189,7 @@ public:
 
 			RCLCPP_INFO(this->get_logger(), "Sim time: %fms", duration/count);
 
+			RCLCPP_INFO(this->get_logger(), "Simulated time: %.3f s", sim_time_ns_ * 1e-9);
 
 			RCLCPP_INFO(this->get_logger(), "Shutting down RaisimBridge");
 
@@ -216,10 +219,24 @@ private:
 		auto com = robot->getCOM();
 		comSphere->setPosition(com[0], com[1], com[2]);
 
+		// Build a single stamp for this step
+  		// rclcpp::Time stamp(sim_time_ns_);
+		// rosgraph_msgs::msg::Clock clk;
+		// clk.clock = stamp.to_msg();
+		// clock_pub_->publish(clk);
+
+		builtin_interfaces::msg::Time stamp;
+		stamp.sec     = static_cast<int32_t>(sim_time_ns_ / 1000000000LL);
+		stamp.nanosec = static_cast<uint32_t>(sim_time_ns_ % 1000000000LL);
+
+		rosgraph_msgs::msg::Clock clk;
+		clk.clock = stamp;                 
+		clock_pub_->publish(clk);
+
 		// Setup the joinstate message
 		sensor_msgs::msg::JointState js;
 		int dof = robot->getDOF();
-		js.header.stamp = now();
+		js.header.stamp = stamp;
 		js.name.resize(dof);
 		js.position.resize(dof);
 		js.velocity.resize(dof);
@@ -262,10 +279,11 @@ private:
 		// Publish joint states
 		joint_state_pub->publish(js);
 
-		count++;
-
 		// Step simulation
 		server.integrateWorldThreadSafe();
+
+		sim_time_ns_ += static_cast<int64_t>(dt_ * 1e9);
+		++count;
 	}
 
 	/*
@@ -326,10 +344,10 @@ private:
 	bool fixed_robot_body;
 
 	// PD Control Gains
-	// const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
-	// const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
-	const double p_gain[12] = {120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0};
-	const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+	const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
+	const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
+	// const double p_gain[12] = {120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0};
+	// const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 

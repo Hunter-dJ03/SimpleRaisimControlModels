@@ -22,11 +22,11 @@ public:
 	RaisimBridge() : Node("raisim_bridge")
 	{
 		// Setup ROS2 parameter time step for simulation, timers and models
-		time_step_ms = this->declare_parameter<float>("time_step_ms", 1.0);
+		pd_time_step_ms = this->declare_parameter<float>("pd_time_step_ms", 1.0);
 		fixed_robot_body = this->declare_parameter<bool>("fixed_robot_body", false);
 
 		// Logging info
-		RCLCPP_INFO(this->get_logger(), "Time step for simulation: %f ms", time_step_ms);
+		RCLCPP_INFO(this->get_logger(), "Time step for simulation: %f ms", pd_time_step_ms);
 		RCLCPP_INFO(this->get_logger(), "Fixed robot body: %s", fixed_robot_body ? "true" : "false");
 
 		// Setup initial leg positions, orientations and joint positions
@@ -66,7 +66,7 @@ public:
 		}
 
 		// Set world timestep for simulation
-		dt_ = time_step_ms * 1e-3;               // seconds
+		dt_ = pd_time_step_ms * 1e-3;               // seconds
 		world.setTimeStep(dt_);    
 		
 		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
@@ -335,7 +335,7 @@ private:
 	std::chrono::_V2::system_clock::time_point startTime;
 
 	// Declare parameters for simulation and control
-	float time_step_ms;
+	float pd_time_step_ms;
 	rclcpp::Publisher<rosgraph_msgs::msg::Clock>::SharedPtr clock_pub_;
 	int64_t sim_time_ns_ = 0;   // simulated time in nanoseconds
 	double dt_ = 0.0;           // seconds, equals world timestep

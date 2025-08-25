@@ -11,7 +11,7 @@ public:
 	QuadrupedLegController() : Node("quadruped_controller")
 	{
 		// Setup ROS2 parameter time step for simulation, timers and models
-		time_step_ms = this->declare_parameter<float>("time_step_ms", 1.0);
+		control_time_step_ms = this->declare_parameter<float>("control_time_step_ms", 1.0);
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
@@ -54,17 +54,12 @@ public:
 		// Set up publisher for endpoint messages
 		endpoint_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint", 10);
 
-		// Create timer to run the control command
-		// timer_ = this->create_wall_timer(
-		// 	std::chrono::microseconds((int)(time_step_ms * 1000)),
-		// 	std::bind(&QuadrupedLegController::controlCommands, this));
-
+		// Create timer to update the control commands
 		timer_ = rclcpp::create_timer(
 			this->get_node_base_interface(),
 			this->get_node_timers_interface(),
 			this->get_clock(),
-			std::chrono::microseconds(2000),
-			// std::chrono::microseconds((int)(time_step_ms * 1000)),
+			std::chrono::microseconds((int)(control_time_step_ms * 1000)),
 			std::bind(&QuadrupedLegController::controlCommands, this));
 
 		// Feedback for controller start
@@ -179,9 +174,6 @@ private:
 
 		// Publish the control effort for the desired joint states
 		desired_control_pub_->publish(control_effort);
-
-		// Increment time by 1 ms per callback
-		// time += time_step_ms / 1000;
 
 		// Fill in desired position
 		endpoint_msg.desired.x = footPosition[0].x();
@@ -648,7 +640,7 @@ private:
 	Eigen::VectorXd zero3 = Eigen::VectorXd::Zero(3);
 
 	double gravity = -9.81;
-	float time_step_ms;
+	float control_time_step_ms;
 	// float time = 0;
 	int dof = 12;
 

@@ -1,4 +1,5 @@
 /**:
   ros__parameters:
-    time_step_ms: 1.0  # Time step in milliseconds
+    pd_time_step_ms: 1.0  # Time step in milliseconds
+    control_time_step_ms: 2.0  # Control time step in milliseconds
     use_sim_time: true # Use simulation time

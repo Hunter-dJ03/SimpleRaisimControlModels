@@ -1,9 +1,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
-#include <std_msgs/msg/float64_multi_array.hpp>
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include <Eigen/Dense>
 #include <Eigen/QR>
+#include <array>
+#include <cmath>
 
 class QuadrupedLegController : public rclcpp::Node
 {
@@ -18,15 +19,13 @@ public:
 		// Initialise variables for leg joint positions, velocities, and foot positions
 		legJointPosition.resize(4);
 		legJointVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		legJointTorque = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionInit = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		footVelocityActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		q = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		qd = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
-		// Fill legJointPosition from init_pos
+		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
 		{
 			legJointPosition[leg] = Eigen::Vector3d(
@@ -41,6 +40,8 @@ public:
 
 			footPosition[leg] = footPositionActual[leg];
 			footPositionInit[leg] = footPositionActual[leg];
+
+			q[leg] = legJointPosition[leg];
 		}
 
 		// Set up subscription to encoder feedback for joint states
@@ -89,7 +90,6 @@ private:
 		// Create control effort message
 		sensor_msgs::msg::JointState control_effort;
 		control_effort.header.stamp = stamp;
-		control_effort.name.resize(dof);
 		control_effort.position.resize(dof);
 		control_effort.velocity.resize(dof);
 		control_effort.effort.resize(dof);
@@ -137,11 +137,6 @@ private:
 			{
 				desired_velocity << vel_x, vel_y, vel_z;
 				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			}
-			else
-			{
-				desired_velocity.setZero();
-				desired_position = footPosition[leg];
 			}
 
 			footPosition[leg] = desired_position;
@@ -226,7 +221,7 @@ private:
 	 *
 	 * @return The Jacobian matrix (3x3) for the leg.
 	 */
-	Eigen::MatrixXd computeJacobian(const Eigen::VectorXd &q,
+	Eigen::MatrixXd computeJacobian(const Eigen::Vector3d &q,
 									const int leg)
 	{
 		// Unpack joint angles from the input vector
@@ -376,7 +371,7 @@ private:
 		}
 
 		// Calculate the joint angles using inverse kinematics
-		Eigen::Vector3d q(3);
+		Eigen::Vector3d qsol;
 
 		// Relative position
 		double x = xd - x0;
@@ -411,8 +406,8 @@ private:
 		double q2 = b2 - b1 - M_PI;
 		double q3 = b3 - M_PI_2;
 
-		q << q1, q2, q3;
-		return q;
+		qsol << q1, q2, q3;
+		return qsol;
 	}
 
 	/*
@@ -426,9 +421,9 @@ private:
 	 *
 	 * @return The Newton-Euler dynamics vector (3D vector) containing the torques for each joint.
 	 */
-	Eigen::VectorXd NE_Dynamics(const Eigen::VectorXd &q,
-								const Eigen::VectorXd &qd,
-								const Eigen::VectorXd &qdd,
+	Eigen::VectorXd NE_Dynamics(const Eigen::Vector3d &q,
+								const Eigen::Vector3d &qd,
+								const Eigen::Vector3d &qdd,
 								const double g,
 								const int leg)
 	{
@@ -629,15 +624,13 @@ private:
 
 	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
 	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
-	std::vector<Eigen::Vector3d> legJointTorque;	 // size 4, each is 3-DOF joint velocity
 	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionInit;	 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> footVelocityActual; // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
 
-	Eigen::VectorXd zero3 = Eigen::VectorXd::Zero(3);
+	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero(3);
 
 	double gravity = -9.81;
 	float control_time_step_ms;
@@ -658,12 +651,6 @@ private:
 	double A2 = 0.2;	  // amplitude
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
-
-	// double Kp_cartesian = 2000.1;
-	// double Kd_cartesian = 40.00001;
-
-	const Eigen::Vector3d Kp_cartesian = Eigen::Vector3d(2000.0, 2000.0, 8000.0);
-	const Eigen::Vector3d Kd_cartesian = Eigen::Vector3d(40.0, 40.0, 80.0);
 };
 
 int main(int argc, char **argv)

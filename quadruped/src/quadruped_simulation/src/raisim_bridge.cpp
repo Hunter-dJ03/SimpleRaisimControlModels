@@ -1,8 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
-#include <std_msgs/msg/float64.hpp>
-#include <std_msgs/msg/float64_multi_array.hpp>
-
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <builtin_interfaces/msg/time.hpp>
 
@@ -10,11 +7,8 @@
 #include <raisim/RaisimServer.hpp>
 
 #include <chrono>
-#include <stdio.h>
-#include <stdlib.h>
 #include <thread>
-#include <random>
-#include <cmath>
+#include <Eigen/Dense>
 
 class RaisimBridge : public rclcpp::Node
 {
@@ -135,8 +129,10 @@ public:
 
 		// Wait for server connection
 		RCLCPP_INFO(this->get_logger(), "Awaiting Connection to raisim server");
-		while (!server.isConnected())
-			;
+		while (!server.isConnected()) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		};
+	
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
@@ -187,8 +183,6 @@ public:
 			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 			RCLCPP_INFO(this->get_logger(), "Ran for %ld ms", duration);
 
-			RCLCPP_INFO(this->get_logger(), "Sim time: %fms", duration/count);
-
 			RCLCPP_INFO(this->get_logger(), "Simulated time: %.3f s", sim_time_ns_ * 1e-9);
 
 			RCLCPP_INFO(this->get_logger(), "Shutting down RaisimBridge");
@@ -219,16 +213,12 @@ private:
 		auto com = robot->getCOM();
 		comSphere->setPosition(com[0], com[1], com[2]);
 
-		// Build a single stamp for this step
-  		// rclcpp::Time stamp(sim_time_ns_);
-		// rosgraph_msgs::msg::Clock clk;
-		// clk.clock = stamp.to_msg();
-		// clock_pub_->publish(clk);
-
+		// Build a single time stamp for this step in sim time
 		builtin_interfaces::msg::Time stamp;
 		stamp.sec     = static_cast<int32_t>(sim_time_ns_ / 1000000000LL);
 		stamp.nanosec = static_cast<uint32_t>(sim_time_ns_ % 1000000000LL);
 
+		// Send stamp to /clock topic for sim time
 		rosgraph_msgs::msg::Clock clk;
 		clk.clock = stamp;                 
 		clock_pub_->publish(clk);
@@ -237,23 +227,22 @@ private:
 		sensor_msgs::msg::JointState js;
 		int dof = robot->getDOF();
 		js.header.stamp = stamp;
-		js.name.resize(dof);
 		js.position.resize(dof);
 		js.velocity.resize(dof);
 		js.effort.resize(dof);
 
-
+		//Initialize torque vector
 		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
 
 		if (fixed_robot_body)
 		{
-
+			// For each joint
 			for (int i = 0; i < dof; ++i)
 			{
+				// PD Control Law
 				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
 				
 				// Add each joint to the jointstate message
-				js.name[i] = "joint_" + std::to_string(i); // Generic joint name
 				js.position[i] = gc[i];
 				js.velocity[i] = gv[i];
 				js.effort[i] = gf[i];
@@ -261,12 +250,15 @@ private:
 		}
 		else
 		{
+			// For each joint (ignoring first 6 dof of floating base)
 			for (int i = 0; i < dof - 6; ++i)
 			{
+				// PD Control Law
+				// Note the offset in gc and gv for the floating base
+				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
 				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
 
 				// Add each joint to the jointstate message
-				js.name[i] = "joint_" + std::to_string(i); // Generic joint name
 				js.position[i] = gc[i + 7];
 				js.velocity[i] = gv[i + 6];
 				js.effort[i] = gf[i + 6];
@@ -282,8 +274,8 @@ private:
 		// Step simulation
 		server.integrateWorldThreadSafe();
 
+		// Update simulated time
 		sim_time_ns_ += static_cast<int64_t>(dt_ * 1e9);
-		++count;
 	}
 
 	/*
@@ -295,8 +287,6 @@ private:
 	 */
 	void effortCommandCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
-		RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
-
 		// Make sure control commands match the robot dof
 		if (msg->position.size() != robot->getDOF() - 6 * !fixed_robot_body)
 		{
@@ -304,6 +294,7 @@ private:
 			return;
 		}
 
+		// Save the commands to memory for the next simulation step
 		for (size_t i = 0; i < msg->position.size(); ++i)
 		{
 			q_ref[i] = msg->position[i];
@@ -316,18 +307,15 @@ private:
 
 	// Raisim control variables
 	bool shutdown_called_ = false;
-	int time_step;
 	raisim::World world;
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
 	Eigen::VectorXd gc, gv, gf, damping, init_state;
-
 	Eigen::VectorXd q_ref, qd_ref, tau_comp;
 
 	// Declare ROS2 publishers, sibscribers and timers
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
-	rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr joint_cmd_sub;
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr desired_cmd_sub_;
 	rclcpp::TimerBase::SharedPtr timer_;
 
@@ -350,8 +338,6 @@ private:
 	// const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-
-	double count = 0.0;
 };
 
 int main(int argc, char **argv)

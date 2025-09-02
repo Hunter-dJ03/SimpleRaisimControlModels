@@ -1,9 +1,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
-#include <std_msgs/msg/float64_multi_array.hpp>
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include <Eigen/Dense>
 #include <Eigen/QR>
+#include <array>
+#include <cmath>
 
 class QuadrupedLegController : public rclcpp::Node
 {
@@ -11,20 +12,20 @@ public:
 	QuadrupedLegController() : Node("quadruped_controller")
 	{
 		// Setup ROS2 parameter time step for simulation, timers and models
-		time_step_ms = this->declare_parameter<float>("time_step_ms", 1.0);
+		control_time_step_ms = this->declare_parameter<float>("control_time_step_ms", 1.0);
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
 		// Initialise variables for leg joint positions, velocities, and foot positions
 		legJointPosition.resize(4);
 		legJointVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		legJointTorque = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionInit = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		footVelocityActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		q = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		qd = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
-		// Fill legJointPosition from init_pos
+		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
 		{
 			legJointPosition[leg] = Eigen::Vector3d(
@@ -39,6 +40,8 @@ public:
 
 			footPosition[leg] = footPositionActual[leg];
 			footPositionInit[leg] = footPositionActual[leg];
+
+			q[leg] = legJointPosition[leg];
 		}
 
 		// Set up subscription to encoder feedback for joint states
@@ -52,6 +55,14 @@ public:
 		// Set up publisher for endpoint messages
 		endpoint_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint", 10);
 
+		// Create timer to update the control commands
+		timer_ = rclcpp::create_timer(
+			this->get_node_base_interface(),
+			this->get_node_timers_interface(),
+			this->get_clock(),
+			std::chrono::microseconds((int)(control_time_step_ms * 1000)),
+			std::bind(&QuadrupedLegController::controlCommands, this));
+
 		// Feedback for controller start
 		RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
 	}
@@ -64,28 +75,39 @@ private:
 	 * @param msg The message containing the joint states.
 	 *
 	 */
-	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
+	void controlCommands()
 	{
+
+		// If sim time has not started yet, do nothing
+		const auto now_ros = this->get_clock()->now();
+		if (now_ros.seconds() == 0.0)
+			return;
+
+		// one stamp for all messages this tick
+		const auto stamp = now_ros;
+
+		// return;
 		// Create control effort message
 		sensor_msgs::msg::JointState control_effort;
-		control_effort.header.stamp = now();
-		control_effort.name.resize(dof);
+		control_effort.header.stamp = stamp;
 		control_effort.position.resize(dof);
 		control_effort.velocity.resize(dof);
 		control_effort.effort.resize(dof);
 
 		// Create endpoint message
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
-		endpoint_msg.header.stamp = now();
+		endpoint_msg.header.stamp = stamp;
+
+		const double t = now_ros.seconds();
 
 		// Temporary velocities for foot
-		double vel_x = A0 * cos(omega0 * time); // Desired velocity in x direction
-		double vel_y = A1 * cos(omega1 * time); // Desired velocity in y direction
-		double vel_z = - A2 * sin(omega2 * time); // Desired velocity in z direction
+		double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
+		double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
+		double vel_z = A2 * sin(omega2 * t); // Desired velocity in z direction
 
-		double d_pos_x = A0 / omega0 * sin(omega0 * time); // Desired position in x direction
-		double d_pos_y = A1 / omega1 * sin(omega1 * time); // Desired position in y direction
-		double d_pos_z = A2 / omega2 * cos(omega2 * time); // Desired position in z direction
+		double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
+		double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
+		double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
 
 		// Desired Velocity vector paraeter
 		Eigen::VectorXd desired_velocity(3);
@@ -116,42 +138,24 @@ private:
 				desired_velocity << vel_x, vel_y, vel_z;
 				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
 			}
-			else
-			{
-				desired_velocity.setZero();
-				desired_position = footPosition[leg];
-			}
 
 			footPosition[leg] = desired_position;
 
-			// Unpack position and velocity from the message for the current leg:
-			Eigen::VectorXd q(3), qd(3), qdd(3);
-			q << msg->position[0 + leg * 3], msg->position[1 + leg * 3], msg->position[2 + leg * 3];
-			qd << msg->velocity[0 + leg * 3], msg->velocity[1 + leg * 3], msg->velocity[2 + leg * 3];
-
 			// Calculate the gravity and corcent torques
-			Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q, zero3, zero3, -gravity, leg);
-			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q, qdd, zero3, 0, leg);
+			Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
+			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0, leg);
 
 			// Calculate leg forward kinematics
-			Eigen::Vector3d fk = forwardKinematics(q, leg);
+			Eigen::Vector3d fk = forwardKinematics(q[leg], leg);
 			footPositionActual[leg] = fk;
 
-			// Update the foot position based on the desired velocity and time step
-			// @todo: This is a simple integration, repalce with position controller paired with the curerent velocity controller
-			// footPosition[leg] += desired_velocity * time_step_ms / 1000.0;
-
-			// Bastardisation of world space control to deal with jacobian error over time
-			// @todo: replace with proper jacobian handler
-
-
 			// Use calculated jacobian and pseudo-inverse to calculate joint velocities for the leg
-			Eigen::MatrixXd jacobian = computeJacobian(q, leg);
+			Eigen::MatrixXd jacobian = computeJacobian(q[leg], leg);
 			auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
 			legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
 
 			legJointPosition[leg] = inverseKinematics(desired_position, leg);
-			
+
 			// Populate control effort message for the leg
 			for (int joint = 0; joint < 3; ++joint)
 			{
@@ -165,9 +169,6 @@ private:
 
 		// Publish the control effort for the desired joint states
 		desired_control_pub_->publish(control_effort);
-
-		// Increment time by 1 ms per callback
-		time += time_step_ms / 1000;
 
 		// Fill in desired position
 		endpoint_msg.desired.x = footPosition[0].x();
@@ -186,6 +187,31 @@ private:
 		endpoint_publisher_->publish(endpoint_msg);
 	}
 
+	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
+	{
+		// Check if the message has the correct size
+		// if (msg->position.size() != 12 || msg->velocity.size() != 12)
+		// {
+		// 	RCLCPP_ERROR(this->get_logger(), "Received joint state message with incorrect size");
+		// 	return;
+		// }
+
+		// Unpack joint states from the message
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			q[leg] = Eigen::Vector3d(
+				msg->position[0 + leg * 3],
+				msg->position[1 + leg * 3],
+				msg->position[2 + leg * 3]);
+			qd[leg] = Eigen::Vector3d(
+				msg->velocity[0 + leg * 3],
+				msg->velocity[1 + leg * 3],
+				msg->velocity[2 + leg * 3]);
+		};
+
+		return; // This function is not used in this controller
+	};
+
 	/*
 	 * Computes the Jacobian matrix for a 3-DOF leg based on the joint angles.
 	 * Contains the full 6x3 matric however only using linear velocity components
@@ -195,7 +221,7 @@ private:
 	 *
 	 * @return The Jacobian matrix (3x3) for the leg.
 	 */
-	Eigen::MatrixXd computeJacobian(const Eigen::VectorXd &q,
+	Eigen::MatrixXd computeJacobian(const Eigen::Vector3d &q,
 									const int leg)
 	{
 		// Unpack joint angles from the input vector
@@ -345,7 +371,7 @@ private:
 		}
 
 		// Calculate the joint angles using inverse kinematics
-		Eigen::Vector3d q(3);
+		Eigen::Vector3d qsol;
 
 		// Relative position
 		double x = xd - x0;
@@ -380,8 +406,8 @@ private:
 		double q2 = b2 - b1 - M_PI;
 		double q3 = b3 - M_PI_2;
 
-		q << q1, q2, q3;
-		return q;
+		qsol << q1, q2, q3;
+		return qsol;
 	}
 
 	/*
@@ -395,9 +421,9 @@ private:
 	 *
 	 * @return The Newton-Euler dynamics vector (3D vector) containing the torques for each joint.
 	 */
-	Eigen::VectorXd NE_Dynamics(const Eigen::VectorXd &q,
-								const Eigen::VectorXd &qd,
-								const Eigen::VectorXd &qdd,
+	Eigen::VectorXd NE_Dynamics(const Eigen::Vector3d &q,
+								const Eigen::Vector3d &qd,
+								const Eigen::Vector3d &qdd,
 								const double g,
 								const int leg)
 	{
@@ -590,6 +616,7 @@ private:
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
+	rclcpp::TimerBase::SharedPtr timer_;
 
 	// Declaration for model parameters and variables
 	std::vector<double> init_pos;
@@ -597,17 +624,17 @@ private:
 
 	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
 	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
-	std::vector<Eigen::Vector3d> legJointTorque;	 // size 4, each is 3-DOF joint velocity
 	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionInit;	 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> footVelocityActual; // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
 
-	Eigen::VectorXd zero3 = Eigen::VectorXd::Zero(3);
+	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero(3);
 
 	double gravity = -9.81;
-	float time_step_ms;
-	float time = 0;
+	float control_time_step_ms;
+	// float time = 0;
 	int dof = 12;
 
 	// Waveform A parameters (x)
@@ -616,20 +643,14 @@ private:
 	double omega0 = 2.0 * M_PI / period0;
 
 	// Waveform B parameters (y)
-	double A1 = 0.3;	  // amplitude
+	double A1 = 0.2;	  // amplitude
 	double period1 = 3.0; // period in seconds
 	double omega1 = 2.0 * M_PI / period1;
 
 	// Waveform C parameters (z)
-	double A2 = 0.3;	  // amplitude
+	double A2 = 0.2;	  // amplitude
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
-
-	// double Kp_cartesian = 2000.1;
-	// double Kd_cartesian = 40.00001;
-
-	const Eigen::Vector3d Kp_cartesian = Eigen::Vector3d(2000.0, 2000.0, 8000.0);
-	const Eigen::Vector3d Kd_cartesian = Eigen::Vector3d(40.0, 40.0, 80.0);
 };
 
 int main(int argc, char **argv)

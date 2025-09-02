@@ -1,4 +1,5 @@
 /**:
   ros__parameters:
     fixed_robot_body: false   # Whether the robot body is fixed realtive to workd frame
+    use_sim_time: true # Use simulation time
     

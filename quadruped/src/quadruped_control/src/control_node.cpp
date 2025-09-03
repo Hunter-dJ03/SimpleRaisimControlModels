@@ -28,6 +28,7 @@ public:
 		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
 		{
+
 			legJointPosition[leg] = Eigen::Vector3d(
 				init_pos[leg * 3 + 0],
 				init_pos[leg * 3 + 1],
@@ -37,6 +38,16 @@ public:
 			footPositionActual[leg] = forwardKinematics(
 				legJointPosition[leg],
 				leg);
+
+			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + walkOffset[leg], footPositionActual[leg][1], footPositionActual[leg][2]), leg);
+
+			footPositionActual[leg] = forwardKinematics(
+				legJointPosition[leg],
+				leg);
+
+			std::cout << "Vector: " << footPositionActual[leg].transpose() << std::endl;
+
+
 
 			footPosition[leg] = footPositionActual[leg];
 			footPositionInit[leg] = footPositionActual[leg];
@@ -100,6 +111,17 @@ private:
 
 		const double t = now_ros.seconds();
 
+
+
+
+
+
+
+
+
+
+
+
 		// Temporary velocities for foot
 		double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
 		double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
@@ -108,6 +130,18 @@ private:
 		double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
 		double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
 		double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
+
+
+
+
+
+
+
+
+
+
+
+
 
 		// Desired Velocity vector paraeter
 		Eigen::VectorXd desired_velocity(3);
@@ -643,14 +677,20 @@ private:
 	double omega0 = 2.0 * M_PI / period0;
 
 	// Waveform B parameters (y)
-	double A1 = 0.2;	  // amplitude
+	double A1 = 0.0;	  // amplitude
 	double period1 = 3.0; // period in seconds
 	double omega1 = 2.0 * M_PI / period1;
 
 	// Waveform C parameters (z)
-	double A2 = 0.2;	  // amplitude
+	double A2 = 0.0;	  // amplitude
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
+
+	double stepLength = 0.2;
+	double stepHeight = 0.2;
+	double stepFrequency = 2.0;
+	double walkOffset[4] = {-stepLength/2, -stepLength/6, stepLength/6, stepLength/2};
+	
 };
 
 int main(int argc, char **argv)

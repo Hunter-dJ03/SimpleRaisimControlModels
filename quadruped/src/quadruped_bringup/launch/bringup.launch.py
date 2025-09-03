@@ -75,6 +75,18 @@ def generate_launch_description():
         ]
     )
 
+    # Setup gait control node
+    gait_control_node = Node(
+        package="quadruped_gait_controller",
+        executable="gait_controller",
+        name="gait_controller",
+        output="screen",
+        parameters=[
+            leg_config, 
+            operation_params,   
+        ]
+    )
+
     return LaunchDescription([
         # Start Foxglove immediately for visualization
         foxglove,
@@ -82,6 +94,6 @@ def generate_launch_description():
         # After a delay, start the raisim node and control node
         TimerAction(
             period=2.0,
-            actions=[raisim_node, control_node],
+            actions=[raisim_node, control_node, gait_control_node],
         ),
     ])

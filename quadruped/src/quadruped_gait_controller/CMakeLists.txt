@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(quadruped_interfaces)
+project(quadruped_gait_controller)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -7,18 +7,27 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
+find_package(quadruped_interfaces REQUIRED)                        
 
-# point-pair message
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/Endpoint.msg"
-  "msg/FootStates.msg"
-  DEPENDENCIES
-    std_msgs
-    geometry_msgs
+find_package(Eigen3 REQUIRED)
+include_directories(
+    ${EIGEN3_INCLUDE_DIRS}
 )
+
+add_executable(gait_controller src/gait_controller.cpp)
+target_include_directories(gait_controller PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(gait_controller PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  gait_controller  rclcpp sensor_msgs std_msgs Eigen3 quadruped_interfaces
+)
+
+install(TARGETS gait_controller
+  DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -31,7 +40,5 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
-
-ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()

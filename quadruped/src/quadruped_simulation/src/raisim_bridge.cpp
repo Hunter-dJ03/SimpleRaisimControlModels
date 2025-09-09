@@ -69,7 +69,9 @@ public:
 		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
 			"/clock", rclcpp::QoS(10).best_effort());
 
-		[[maybe_unused]] auto ground = world.addGround(0);
+		auto ground = world.addGround(0);
+		ground->setAppearance("hidden");
+
 
 		// Variable Gravity option
 		// world.setGravity(Eigen::Vector3d(0, 0, 0));
@@ -127,8 +129,12 @@ public:
 		// CoM Ball Display
 		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1, 0, 0, 1);
 
+		server.setMap("wheat");
+
 		// Setup raisim server
 		server.launchServer(8080);
+
+		
 
 		// Wait for server connection
 		RCLCPP_INFO(this->get_logger(), "Awaiting Connection to raisim server");
@@ -139,7 +145,7 @@ public:
 
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
 
 		RCLCPP_INFO(this->get_logger(), "RaisimBridge Node Initialised");
 
@@ -207,6 +213,8 @@ private:
 	void update()
 	{
 		// RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
+		// server.integrateWorldThreadSafe();
+		// return;
 
 		// Update internal state vectors
 		gc = robot->getGeneralizedCoordinate().e();

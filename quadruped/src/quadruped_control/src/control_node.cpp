@@ -21,7 +21,6 @@ public:
 		legJointPosition.resize(4);
 		legJointVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		footPositionInit = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		q = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		qd = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
@@ -52,13 +51,10 @@ public:
 			// 	legJointPosition[leg],
 			// 	leg);
 
-			std::cout << "Vector: " << footPositionActual[leg].transpose() << std::endl;
+			// std::cout << "Vector: " << footPositionActual[leg].transpose() << std::endl;
 
 			desired_footPosition[leg] = footPositionActual[leg];
 			desired_footVelocity[leg] = zero3;
-
-			// footPositionWalk[leg] = footPositionActual[leg];
-			footPositionInit[leg] = footPositionActual[leg];
 
 			q[leg] = legJointPosition[leg];
 		}
@@ -142,27 +138,6 @@ private:
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
-			// Set desired velocity based on leg index
-			// if (leg == 0)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
-			// else if (leg == 1)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
-			// else if (leg == 2)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
-			// else if (leg == 3)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
 
 			desired_position = desired_footPosition[leg];
 			desired_velocity = desired_footVelocity[leg];
@@ -688,7 +663,6 @@ private:
 	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
 	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
 	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
-	std::vector<Eigen::Vector3d> footPositionInit;	 // size 4, each is foot position (x, y, z)
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)

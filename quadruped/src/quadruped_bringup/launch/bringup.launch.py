@@ -78,7 +78,7 @@ def generate_launch_description():
     # Setup gait control node
     gait_control_node = Node(
         package="quadruped_gait_controller",
-        executable="gait_controller",
+        executable="walk_gait_controller",
         name="gait_controller",
         output="screen",
         parameters=[

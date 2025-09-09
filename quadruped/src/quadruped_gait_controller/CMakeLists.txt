@@ -17,16 +17,28 @@ include_directories(
     ${EIGEN3_INCLUDE_DIRS}
 )
 
-add_executable(gait_controller src/gait_controller.cpp)
-target_include_directories(gait_controller PUBLIC
+add_executable(walk_gait_controller src/walk_gait_controller.cpp)
+target_include_directories(walk_gait_controller PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(gait_controller PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(walk_gait_controller PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  gait_controller  rclcpp sensor_msgs std_msgs Eigen3 quadruped_interfaces
+  walk_gait_controller  rclcpp sensor_msgs std_msgs Eigen3 quadruped_interfaces
 )
 
-install(TARGETS gait_controller
+install(TARGETS walk_gait_controller
+  DESTINATION lib/${PROJECT_NAME})
+
+add_executable(trot_gait_controller src/trot_gait_controller.cpp)
+target_include_directories(trot_gait_controller PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>)
+target_compile_features(trot_gait_controller PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  trot_gait_controller  rclcpp sensor_msgs std_msgs Eigen3 quadruped_interfaces
+)
+
+install(TARGETS trot_gait_controller
   DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)

@@ -63,6 +63,9 @@ public:
 		dt_ = pd_time_step_ms * 1e-3; // seconds
 		world.setTimeStep(dt_);
 
+		// Set default material properties (restitution, friction, adhesion)
+		world.setDefaultMaterial(1.0, 0.2, 0.0);
+
 		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
 			"/clock", rclcpp::QoS(10).best_effort());
 
@@ -332,8 +335,8 @@ private:
 	bool fixed_robot_body;
 
 	// PD Control Gains
-	const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
-	const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
+	const double p_gain[12] = {800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0, 800.0};
+	const double d_gain[12] = {8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0};
 	// const double p_gain[12] = {120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0};
 	// const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};

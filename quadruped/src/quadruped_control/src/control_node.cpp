@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include "quadruped_interfaces/msg/endpoint.hpp"
+#include "quadruped_interfaces/msg/foot_states.hpp"
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <array>
@@ -24,6 +25,10 @@ public:
 		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		q = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		qd = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		desired_footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+		desired_footVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
+
+		footPositionWalk = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
 		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
@@ -39,17 +44,20 @@ public:
 				legJointPosition[leg],
 				leg);
 
-			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + walkOffset[leg], footPositionActual[leg][1], footPositionActual[leg][2]), leg);
+			footPosition[leg] = footPositionActual[leg];
 
-			footPositionActual[leg] = forwardKinematics(
-				legJointPosition[leg],
-				leg);
+			// legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + walkOffset[leg], footPositionActual[leg][1], footPositionActual[leg][2]), leg);
+
+			// footPositionActual[leg] = forwardKinematics(
+			// 	legJointPosition[leg],
+			// 	leg);
 
 			std::cout << "Vector: " << footPositionActual[leg].transpose() << std::endl;
 
+			desired_footPosition[leg] = footPositionActual[leg];
+			desired_footVelocity[leg] = zero3;
 
-
-			footPosition[leg] = footPositionActual[leg];
+			// footPositionWalk[leg] = footPositionActual[leg];
 			footPositionInit[leg] = footPositionActual[leg];
 
 			q[leg] = legJointPosition[leg];
@@ -59,6 +67,10 @@ public:
 		joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
 			"joint_states", 10,
 			std::bind(&QuadrupedLegController::jointStateCallback, this, std::placeholders::_1));
+
+		foot_state_sub_ = this->create_subscription<quadruped_interfaces::msg::FootStates>(
+			"foot_states", 10,
+			std::bind(&QuadrupedLegController::footStateCallback, this, std::placeholders::_1));
 
 		// Set up publishers for desired control effort
 		desired_control_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_desired_control", 10);
@@ -109,69 +121,51 @@ private:
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
 		endpoint_msg.header.stamp = stamp;
 
-		const double t = now_ros.seconds();
-
-
-
-
-
-
-
-
-
-
+		// const double t = now_ros.seconds();
 
 
 		// Temporary velocities for foot
-		double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
-		double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
-		double vel_z = A2 * sin(omega2 * t); // Desired velocity in z direction
+		// double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
+		// double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
+		// double vel_z = A2 * sin(omega2 * t); // Desired velocity in z direction
 
-		double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
-		double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
-		double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
-
-
-
-
-
-
-
-
-
-
-
+		// double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
+		// double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
+		// double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
 
 
 		// Desired Velocity vector paraeter
 		Eigen::VectorXd desired_velocity(3);
 		Eigen::VectorXd desired_position(3);
-		desired_velocity.setZero();
+		// desired_velocity.setZero();
 
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
 			// Set desired velocity based on leg index
-			if (leg == 0)
-			{
-				desired_velocity << vel_x, vel_y, vel_z;
-				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			}
-			else if (leg == 1)
-			{
-				desired_velocity << vel_x, vel_y, vel_z;
-				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			}
-			else if (leg == 2)
-			{
-				desired_velocity << vel_x, vel_y, vel_z;
-				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			}
-			else if (leg == 3)
-			{
-				desired_velocity << vel_x, vel_y, vel_z;
-				desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			}
+			// if (leg == 0)
+			// {
+			// 	desired_velocity << vel_x, vel_y, vel_z;
+			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
+			// }
+			// else if (leg == 1)
+			// {
+			// 	desired_velocity << vel_x, vel_y, vel_z;
+			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
+			// }
+			// else if (leg == 2)
+			// {
+			// 	desired_velocity << vel_x, vel_y, vel_z;
+			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
+			// }
+			// else if (leg == 3)
+			// {
+			// 	desired_velocity << vel_x, vel_y, vel_z;
+			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
+			// }
+
+			desired_position = desired_footPosition[leg];
+			desired_velocity = desired_footVelocity[leg];
 
 			footPosition[leg] = desired_position;
 
@@ -221,6 +215,12 @@ private:
 		endpoint_publisher_->publish(endpoint_msg);
 	}
 
+	/*
+	 * Callback that updates the current joint states based on encoder feedback.
+	 * Receives current joint states and saves the most recent to internal variables.
+	 * 
+	 * @param msg The message containing the joint states.
+	 */
 	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
 		// Check if the message has the correct size
@@ -244,6 +244,31 @@ private:
 		};
 
 		return; // This function is not used in this controller
+	};
+
+	/*
+	 * Callback that updates the desired foot states based on incoming messages.
+	 * Receives desired foot positions and velocities and saves the most recent to internal variables.
+	 * 
+	 * @param msg The message containing the desired foot states.
+	 */
+	void footStateCallback(const quadruped_interfaces::msg::FootStates::SharedPtr msg)
+	{
+		// Unpack desired foot states from the message
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			desired_footPosition[leg] = Eigen::Vector3d(
+				msg->desired_positions[leg].x,
+				msg->desired_positions[leg].y,
+				msg->desired_positions[leg].z);
+
+			desired_footVelocity[leg] = Eigen::Vector3d(
+				msg->desired_velocities[leg].x,
+				msg->desired_velocities[leg].y,
+				msg->desired_velocities[leg].z);
+		};
+
+		return; 
 	};
 
 	/*
@@ -648,6 +673,7 @@ private:
 
 	// Declaration for ROS2 subscriptions and publishers
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+	rclcpp::Subscription<quadruped_interfaces::msg::FootStates>::SharedPtr foot_state_sub_;
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
 	rclcpp::TimerBase::SharedPtr timer_;
@@ -663,6 +689,10 @@ private:
 	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> desired_footPosition; // size 4, each is desired foot position (x, y, z)
+	std::vector<Eigen::Vector3d> desired_footVelocity; // size 4, each is desired foot velocity (x, y, z)
+
+	std::vector<Eigen::Vector3d> footPositionWalk;	 // size 4, each is foot position (x, y, z)
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero(3);
 
@@ -686,7 +716,7 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double stepLength = 0.2;
+	double stepLength = 0.4;
 	double stepHeight = 0.2;
 	double stepFrequency = 2.0;
 	double walkOffset[4] = {-stepLength/2, -stepLength/6, stepLength/6, stepLength/2};

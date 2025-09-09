@@ -137,29 +137,50 @@ private:
 			if (stepTimer[leg] >= stepDuration)
 			{
 				stepTimer[leg] = 0;
-				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %d", leg);
+				// RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %d", leg);
 			}
 			
 			if (stepTimer[leg] < stepDuration/4) // Swing phase
 			{
-				desired_position(0) = footPositionInit[leg](0) + stepLength * ((4*stepTimer[leg])/(stepDuration)) - stepLength/2;
+				desired_position(0) = footPositionInit[leg](0) + stepLength * (a[6]*pow(stepTimer[leg],6) + a[5]*pow(stepTimer[leg],5) + a[4]*pow(stepTimer[leg],4) + a[3]*pow(stepTimer[leg],3) + a[2]*pow(stepTimer[leg],2) + a[1]*stepTimer[leg] + a[0]);
 				desired_position(1) = footPositionInit[leg](1);
-				desired_position(2) = footPositionInit[leg](2) + stepHeight * sin(M_PI * (4*stepTimer[leg])/(stepDuration));
+				desired_position(2) = footPositionInit[leg](2) + stepHeight * (b[6]*pow(stepTimer[leg],6) + b[5]*pow(stepTimer[leg],5) + b[4]*pow(stepTimer[leg],4) + b[3]*pow(stepTimer[leg],3) + b[2]*pow(stepTimer[leg],2) + b[1]*stepTimer[leg] + b[0]);
 
-				desired_velocity(0) = stepLength * (4/(stepDuration));
+				desired_velocity(0) = stepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
 				desired_velocity(1) = 0;
-				desired_velocity(2) = 4 * M_PI * stepHeight / stepDuration * cos(M_PI * (4*stepTimer[leg])/(stepDuration));
+				desired_velocity(2) = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
 			}
 			else // Stance phase
 			{
-				desired_position(0) = footPositionInit[leg](0) + stepLength * (1- ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))) - stepLength/2; 
+				desired_position(0) = footPositionInit[leg](0) + stepLength * (1.0/2.0 - ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))); 
 				desired_position(1) = footPositionInit[leg](1);
 				desired_position(2) = footPositionInit[leg](2);
 
-				desired_velocity(0) = -stepLength * (1/(stepDuration - 1000));
+				desired_velocity(0) = - (4.0 * stepLength) / (3.0 * stepDuration);
 				desired_velocity(1) = 0;
 				desired_velocity(2) = 0;
 			}
+
+			// if (stepTimer[leg] < stepDuration/4) // Swing phase
+			// {
+			// 	desired_position(0) = footPositionInit[leg](0) + stepLength * ((4*stepTimer[leg])/(stepDuration)) - stepLength/2;
+			// 	desired_position(1) = footPositionInit[leg](1);
+			// 	desired_position(2) = footPositionInit[leg](2) + stepHeight * sin(M_PI * (4*stepTimer[leg])/(stepDuration));
+
+			// 	desired_velocity(0) = stepLength * (4/(stepDuration));
+			// 	desired_velocity(1) = 0;
+			// 	desired_velocity(2) = 4 * M_PI * stepHeight / stepDuration * cos(M_PI * (4*stepTimer[leg])/(stepDuration));
+			// }
+			// else // Stance phase
+			// {
+			// 	desired_position(0) = footPositionInit[leg](0) + stepLength * (1- ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))) - stepLength/2; 
+			// 	desired_position(1) = footPositionInit[leg](1);
+			// 	desired_position(2) = footPositionInit[leg](2);
+
+			// 	desired_velocity(0) = -stepLength * (1/(stepDuration - 1000));
+			// 	desired_velocity(1) = 0;
+			// 	desired_velocity(2) = 0;
+			// }
 
 
 			// Set desired velocity based on leg index
@@ -208,9 +229,9 @@ private:
 			foot_state_msg.desired_positions[leg].y = desired_position(1);
 			foot_state_msg.desired_positions[leg].z = desired_position(2);
 
-			foot_state_msg.desired_velocities[leg].x = desired_velocity(0);
-			foot_state_msg.desired_velocities[leg].y = desired_velocity(1);
-			foot_state_msg.desired_velocities[leg].z = desired_velocity(2);
+			foot_state_msg.desired_velocities[leg].x = desired_velocity(0) * 1000.0; // Convert to m/s from mm/s
+			foot_state_msg.desired_velocities[leg].y = desired_velocity(1) * 1000.0;
+			foot_state_msg.desired_velocities[leg].z = desired_velocity(2) * 1000.0;
 		}
 
 		if (now_ros.seconds() >= 1.0) {
@@ -432,15 +453,15 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double stepLength = 0.2;
-	double stepHeight = 0.2;
-	double stepDuration = 1200.0;
+	double stepLength = 0.375;
+	double stepHeight = 0.1;
+	double stepDuration = 1000.0;
 	double walkOffset[4] = {-stepLength / 2.0, -stepLength / 6.0, stepLength / 2.0, stepLength / 6.0};
 	double stepTimer[4] = {stepDuration*(0.0/4.0), stepDuration*(3.0/4.0), stepDuration*(1.0/4.0), stepDuration*(2.0/4.0)};
 
-	double T = stepDuration / 1000.0; // Convert ms to seconds for polynomial coeffs
-	std::vector<double> a = {-1.0 / 2.0, -2.0 / T, 0, 160.0 / pow(T, 3), -480.0 / pow(T, 4), 384.0 / pow(T, 5), 0};
-	std::vector<double> b = {0, 0, 0, 512.0 / pow(T, 3), -3072.0 / pow(T, 4), 6144.0 / pow(T, 5), -4096.0 / pow(T, 6)};
+	double T = stepDuration; // Convert ms to seconds for polynomial coeffs
+	std::vector<double> a = {-1.0 / 2.0, -1.0 / T, 0, 800.0 / pow(T, 3), -4800.0 / pow(T, 4), 7680.0 / pow(T, 5), 0};
+	std::vector<double> b = {0, 0, 0, 4096.0 / pow(T, 3), -49152.0 / pow(T, 4), 196608.0 / pow(T, 5), -262144.0 / pow(T, 6)};
 
 	bool once = true;
 };

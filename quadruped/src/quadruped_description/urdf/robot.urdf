@@ -5,7 +5,7 @@
   <!-- Link body -->
   <link name="body">
     <inertial>
-      <origin xyz="9.29449e-18 -1.15252e-17 0.000234013" rpy="0 0 0"/>
+      <origin xyz="0.1 -1.15252e-17 0.000234013" rpy="0 0 0"/>
       <mass value="9.332"/>
       <inertia ixx="0.194458" ixy="1.41882e-08" ixz="0" iyy="0.268035" iyz="0" izz="0.457763"/>
     </inertial>

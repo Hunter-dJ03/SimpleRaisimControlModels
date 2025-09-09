@@ -167,6 +167,9 @@ private:
 			desired_position = desired_footPosition[leg];
 			desired_velocity = desired_footVelocity[leg];
 
+			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Position: %f, %f, %f", leg, desired_position(0), desired_position(1), desired_position(2));
+			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Velocity: %f, %f, %f", leg, desired_velocity(0), desired_velocity(1), desired_velocity(2));	
+
 			footPosition[leg] = desired_position;
 
 			// Calculate the gravity and corcent torques

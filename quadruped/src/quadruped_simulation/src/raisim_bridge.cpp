@@ -245,6 +245,7 @@ private:
 			{
 				// PD Control Law
 				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
+				tau[i] = std::clamp(tau[i], -60.0, 60.0);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
@@ -261,6 +262,7 @@ private:
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
 				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
+				tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i + 7];

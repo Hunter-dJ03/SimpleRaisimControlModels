@@ -716,7 +716,7 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double stepLength = 0.4;
+	double stepLength = 0.3;
 	double stepHeight = 0.2;
 	double stepFrequency = 2.0;
 	double walkOffset[4] = {-stepLength/2, -stepLength/6, stepLength/6, stepLength/2};

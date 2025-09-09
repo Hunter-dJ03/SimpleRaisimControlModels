@@ -438,6 +438,10 @@ private:
 	double walkOffset[4] = {-stepLength / 2.0, -stepLength / 6.0, stepLength / 2.0, stepLength / 6.0};
 	double stepTimer[4] = {stepDuration*(0.0/4.0), stepDuration*(3.0/4.0), stepDuration*(1.0/4.0), stepDuration*(2.0/4.0)};
 
+	double T = stepDuration / 1000.0; // Convert ms to seconds for polynomial coeffs
+	std::vector<double> a = {-1.0 / 2.0, -2.0 / T, 0, 160.0 / pow(T, 3), -480.0 / pow(T, 4), 384.0 / pow(T, 5), 0};
+	std::vector<double> b = {0, 0, 0, 512.0 / pow(T, 3), -3072.0 / pow(T, 4), 6144.0 / pow(T, 5), -4096.0 / pow(T, 6)};
+
 	bool once = true;
 };
 

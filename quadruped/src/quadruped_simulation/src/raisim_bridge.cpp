@@ -129,7 +129,7 @@ public:
 		// CoM Ball Display
 		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1, 0, 0, 1);
 
-		server.setMap("wheat");
+		server.setMap("dune");
 
 		// Setup raisim server
 		server.launchServer(8080);
@@ -145,7 +145,7 @@ public:
 
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
 		RCLCPP_INFO(this->get_logger(), "RaisimBridge Node Initialised");
 

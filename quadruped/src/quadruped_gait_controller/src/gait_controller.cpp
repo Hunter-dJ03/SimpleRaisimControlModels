@@ -137,7 +137,7 @@ private:
 			if (stepTimer[leg] >= stepDuration)
 			{
 				stepTimer[leg] = 0;
-				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %d", leg);
+				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %ld", leg);
 			}
 			
 			if (stepTimer[leg] < stepDuration/4) // Swing phase

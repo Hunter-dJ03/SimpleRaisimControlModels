@@ -1,0 +1,477 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape https://cad.onshape.com/documents/c56c7b024fe67f247621574e/w/b966d90009c5abd226fc14d9/e/0b34578ce851a253c0b5c7fa -->
+<robot name="quadrupedV2">
+  <!-- Link body -->
+  <link name="body">
+    <inertial>
+      <origin xyz="0 0 0.025" rpy="0 0 0"/>
+      <mass value="9.41625"/>
+      <inertia ixx="0.00981209" ixy="9.43591e-13" ixz="0" iyy="0.383734" iyz="0" izz="0.389621"/>
+    </inertial>
+    <!-- Part pelvisa -->
+    <visual>
+      <origin xyz="-0.28375 0.154 0.025" rpy="1.5708 -1.11022e-15 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisa.obj"/>
+      </geometry>
+      <material name="pelvisa_material">
+        <color rgba="0.980392 0.713725 0.00392157 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.28375 0.154 0.025" rpy="1.5708 -1.11022e-15 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisa.obj"/>
+      </geometry>
+    </collision>
+    <!-- Part pelvisa_2 -->
+    <visual>
+      <origin xyz="0.28375 -0.154 0.025" rpy="1.5708 -1.11022e-15 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisa.obj"/>
+      </geometry>
+      <material name="pelvisa_2_material">
+        <color rgba="0.980392 0.713725 0.00392157 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.28375 -0.154 0.025" rpy="1.5708 -1.11022e-15 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisa.obj"/>
+      </geometry>
+    </collision>
+    <!-- Part pelvisb -->
+    <visual>
+      <origin xyz="0.28375 0.154 0.025" rpy="1.5708 1.11022e-15 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisb.obj"/>
+      </geometry>
+      <material name="pelvisb_material">
+        <color rgba="0.980392 0.713725 0.00392157 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.28375 0.154 0.025" rpy="1.5708 1.11022e-15 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisb.obj"/>
+      </geometry>
+    </collision>
+    <!-- Part body -->
+    <visual>
+      <origin xyz="-0.34875 0 0.025" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/body.obj"/>
+      </geometry>
+      <material name="body_material">
+        <color rgba="0.701961 0.701961 0.701961 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.34875 0 0.025" rpy="0 -0 1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/body.obj"/>
+      </geometry>
+    </collision>
+    <!-- Part pelvisb_2 -->
+    <visual>
+      <origin xyz="-0.28375 -0.154 0.025" rpy="1.5708 1.11022e-15 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisb.obj"/>
+      </geometry>
+      <material name="pelvisb_2_material">
+        <color rgba="0.980392 0.713725 0.00392157 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.28375 -0.154 0.025" rpy="1.5708 1.11022e-15 -1.5708"/>
+      <geometry>
+        <mesh filename="package://assets/pelvisb.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link coxab -->
+  <link name="coxab">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1.18779e-06" ixy="6.96469e-11" ixz="-8.87738e-11" iyy="5.6673e-07" iyz="7.27282e-08" izz="1.04473e-06"/>
+    </inertial>
+    <!-- Part coxab -->
+    <visual>
+      <origin xyz="3.22659e-16 0 0.062" rpy="-3.72756e-26 -2.55506e-26 -3.9937e-44"/>
+      <geometry>
+        <mesh filename="package://assets/coxab.obj"/>
+      </geometry>
+      <material name="coxab_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="3.22659e-16 0 0.062" rpy="-3.72756e-26 -2.55506e-26 -3.9937e-44"/>
+      <geometry>
+        <mesh filename="package://assets/coxab.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link femurl -->
+  <link name="femurl">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.41608e-07" ixy="-4.73405e-07" ixz="2.74431e-07" iyy="1.47972e-05" iyz="-1.23653e-08" izz="1.46821e-05"/>
+    </inertial>
+    <!-- Part femurl -->
+    <visual>
+      <origin xyz="-7.21645e-16 -6.34909e-16 0.064" rpy="-3.45127e-31 9.61424e-31 1.2326e-31"/>
+      <geometry>
+        <mesh filename="package://assets/femurl.obj"/>
+      </geometry>
+      <material name="femurl_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-7.21645e-16 -6.34909e-16 0.064" rpy="-3.45127e-31 9.61424e-31 1.2326e-31"/>
+      <geometry>
+        <mesh filename="package://assets/femurl.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link tibia -->
+  <link name="tibia">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.16674e-06" ixy="-6.57069e-08" ixz="-3.45203e-13" iyy="4.08032e-08" iyz="-3.30086e-12" izz="4.17202e-06"/>
+    </inertial>
+    <!-- Part tibia -->
+    <visual>
+      <origin xyz="0 3.46945e-18 0" rpy="-1.10816e-30 1.19993e-30 -7.39557e-32"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+      <material name="tibia_material">
+        <color rgba="0.768627 0.886275 0.952941 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 3.46945e-18 0" rpy="-1.10816e-30 1.19993e-30 -7.39557e-32"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from femurl to tibia -->
+  <joint name="Knee1" type="revolute">
+    <origin xyz="0.370345 -3.46945e-18 0.064" rpy="2.9923e-15 -1.55118e-14 -2.22045e-16"/>
+    <parent link="femurl"/>
+    <child link="tibia"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from coxab to femurl -->
+  <joint name="HipFE1" type="revolute">
+    <origin xyz="3.08781e-16 -0.0705 0.062" rpy="1.5708 1.5708 0"/>
+    <parent link="coxab"/>
+    <child link="femurl"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from body to coxab -->
+  <joint name="HipAA1" type="revolute">
+    <origin xyz="0.22175 0.154 0.025" rpy="3.14159 -1.5708 0"/>
+    <parent link="body"/>
+    <child link="coxab"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Link coxaa -->
+  <link name="coxaa">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1.18779e-06" ixy="6.96403e-11" ixz="8.87881e-11" iyy="5.66729e-07" iyz="-7.27282e-08" izz="1.04473e-06"/>
+    </inertial>
+    <!-- Part coxaa -->
+    <visual>
+      <origin xyz="3.26128e-16 0 -0.062" rpy="-3.14159 2.55506e-26 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxaa.obj"/>
+      </geometry>
+      <material name="coxaa_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="3.26128e-16 0 -0.062" rpy="-3.14159 2.55506e-26 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxaa.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link femurl_2 -->
+  <link name="femurl_2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.41608e-07" ixy="-4.73405e-07" ixz="2.74431e-07" iyy="1.47972e-05" iyz="-1.23653e-08" izz="1.46821e-05"/>
+    </inertial>
+    <!-- Part femurl_2 -->
+    <visual>
+      <origin xyz="-7.21645e-16 -6.31439e-16 0.064" rpy="-4.93038e-31 8.80357e-31 4.57834e-41"/>
+      <geometry>
+        <mesh filename="package://assets/femurl.obj"/>
+      </geometry>
+      <material name="femurl_2_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-7.21645e-16 -6.31439e-16 0.064" rpy="-4.93038e-31 8.80357e-31 4.57834e-41"/>
+      <geometry>
+        <mesh filename="package://assets/femurl.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link tibia_2 -->
+  <link name="tibia_2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.16674e-06" ixy="-6.57069e-08" ixz="-3.45203e-13" iyy="4.08032e-08" iyz="-3.30086e-12" izz="4.17202e-06"/>
+    </inertial>
+    <!-- Part tibia_2 -->
+    <visual>
+      <origin xyz="0 -3.46945e-18 0" rpy="-3.81705e-31 -9.20807e-31 -4.66119e-32"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+      <material name="tibia_2_material">
+        <color rgba="0.768627 0.886275 0.952941 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -3.46945e-18 0" rpy="-3.81705e-31 -9.20807e-31 -4.66119e-32"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from femurl_2 to tibia_2 -->
+  <joint name="Knee2" type="revolute">
+    <origin xyz="0.370345 0 0.064" rpy="1.1545e-14 -1.8851e-14 1.01406e-15"/>
+    <parent link="femurl_2"/>
+    <child link="tibia_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from coxaa to femurl_2 -->
+  <joint name="HipFE2" type="revolute">
+    <origin xyz="3.53884e-16 -0.0705 -0.062" rpy="1.5708 1.5708 0"/>
+    <parent link="coxaa"/>
+    <child link="femurl_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from body to coxaa -->
+  <joint name="HipAA2" type="revolute">
+    <origin xyz="-0.22175 0.154 0.025" rpy="-3.14159 -1.5708 0"/>
+    <parent link="body"/>
+    <child link="coxaa"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Link coxab_2 -->
+  <link name="coxab_2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1.18779e-06" ixy="-6.96469e-11" ixz="8.87738e-11" iyy="5.6673e-07" iyz="7.27282e-08" izz="1.04473e-06"/>
+    </inertial>
+    <!-- Part coxab_2 -->
+    <visual>
+      <origin xyz="3.26128e-16 0 -0.062" rpy="3.14159 2.55506e-26 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxab.obj"/>
+      </geometry>
+      <material name="coxab_2_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="3.26128e-16 0 -0.062" rpy="3.14159 2.55506e-26 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxab.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link femurr -->
+  <link name="femurr">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.41608e-07" ixy="-4.73405e-07" ixz="-2.74431e-07" iyy="1.47972e-05" iyz="1.23653e-08" izz="1.46821e-05"/>
+    </inertial>
+    <!-- Part femurr -->
+    <visual>
+      <origin xyz="-7.21645e-16 -6.34909e-16 -0.064" rpy="3.9443e-31 -9.61424e-31 0"/>
+      <geometry>
+        <mesh filename="package://assets/femurr.obj"/>
+      </geometry>
+      <material name="femurr_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-7.21645e-16 -6.34909e-16 -0.064" rpy="3.9443e-31 -9.61424e-31 0"/>
+      <geometry>
+        <mesh filename="package://assets/femurr.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link tibia_3 -->
+  <link name="tibia_3">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.16674e-06" ixy="-6.57069e-08" ixz="-3.45203e-13" iyy="4.08032e-08" iyz="-3.30086e-12" izz="4.17202e-06"/>
+    </inertial>
+    <!-- Part tibia_3 -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 6.31569e-31 0"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+      <material name="tibia_3_material">
+        <color rgba="0.768627 0.886275 0.952941 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 6.31569e-31 0"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from femurr to tibia_3 -->
+  <joint name="Knee3" type="revolute">
+    <origin xyz="0.370345 -1.04083e-17 -0.064" rpy="-3.21434e-15 1.57338e-14 -5.04871e-29"/>
+    <parent link="femurr"/>
+    <child link="tibia_3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from coxab_2 to femurr -->
+  <joint name="HipFE3" type="revolute">
+    <origin xyz="3.1225e-16 0.0705 -0.062" rpy="1.5708 1.5708 0"/>
+    <parent link="coxab_2"/>
+    <child link="femurr"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from body to coxab_2 -->
+  <joint name="HipAA3" type="revolute">
+    <origin xyz="-0.22175 -0.154 0.025" rpy="-3.14159 -1.5708 0"/>
+    <parent link="body"/>
+    <child link="coxab_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Link coxaa_2 -->
+  <link name="coxaa_2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="1.18779e-06" ixy="6.96403e-11" ixz="8.87881e-11" iyy="5.66729e-07" iyz="-7.27282e-08" izz="1.04473e-06"/>
+    </inertial>
+    <!-- Part coxaa_2 -->
+    <visual>
+      <origin xyz="3.26128e-16 0 -0.062" rpy="-3.14159 2.55506e-26 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxaa.obj"/>
+      </geometry>
+      <material name="coxaa_2_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="3.26128e-16 0 -0.062" rpy="-3.14159 2.55506e-26 0"/>
+      <geometry>
+        <mesh filename="package://assets/coxaa.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link femurr_2 -->
+  <link name="femurr_2">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.41608e-07" ixy="-4.73405e-07" ixz="-2.74431e-07" iyy="1.47972e-05" iyz="1.23653e-08" izz="1.46821e-05"/>
+    </inertial>
+    <!-- Part femurr_2 -->
+    <visual>
+      <origin xyz="9.35139e-05 6.32705e-06 -0.064" rpy="5.91646e-31 -9.49098e-31 -4.93038e-32"/>
+      <geometry>
+        <mesh filename="package://assets/femurr.obj"/>
+      </geometry>
+      <material name="femurr_2_material">
+        <color rgba="0.647059 0.647059 0.647059 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="9.35139e-05 6.32705e-06 -0.064" rpy="5.91646e-31 -9.49098e-31 -4.93038e-32"/>
+      <geometry>
+        <mesh filename="package://assets/femurr.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link tibia_4 -->
+  <link name="tibia_4">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-09"/>
+      <inertia ixx="4.16674e-06" ixy="-6.57069e-08" ixz="-3.45203e-13" iyy="4.08032e-08" iyz="-3.30086e-12" izz="4.17202e-06"/>
+    </inertial>
+    <!-- Part tibia_4 -->
+    <visual>
+      <origin xyz="0 0 0" rpy="3.54929e-31 -2.14044e-30 7.39557e-32"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+      <material name="tibia_4_material">
+        <color rgba="0.768627 0.886275 0.952941 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="3.54929e-31 -2.14044e-30 7.39557e-32"/>
+      <geometry>
+        <mesh filename="package://assets/tibia.obj"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from femurr_2 to tibia_4 -->
+  <joint name="Knee4" type="revolute">
+    <origin xyz="0.370438 6.32705e-06 -0.064" rpy="-3.27319e-15 1.55329e-14 7.39557e-31"/>
+    <parent link="femurr_2"/>
+    <child link="tibia_4"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from coxaa_2 to femurr_2 -->
+  <joint name="HipFE4" type="revolute">
+    <origin xyz="2.67147e-16 -0.0705 -0.062" rpy="-1.5708 -1.5708 0"/>
+    <parent link="coxaa_2"/>
+    <child link="femurr_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+  <!-- Joint from body to coxaa_2 -->
+  <joint name="HipAA4" type="revolute">
+    <origin xyz="0.22175 -0.154 0.025" rpy="-5.34326e-31 -1.5708 0"/>
+    <parent link="body"/>
+    <child link="coxaa_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="-3.141592653589793" upper="3.141592653589793"/>
+  </joint>
+</robot>

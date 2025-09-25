@@ -241,12 +241,12 @@ private:
 			// Populate control effort message for the leg
 			for (int joint = 0; joint < 3; ++joint)
 			{
-				// control_effort.position[leg * 3 + joint] = legJointPosition[leg](joint);
-				// control_effort.velocity[leg * 3 + joint] = legJointVelocity[leg](joint);
-				control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
-				control_effort.velocity[leg * 3 + joint] = 0;
+				control_effort.position[leg * 3 + joint] = legJointPosition[leg](joint);
+				control_effort.velocity[leg * 3 + joint] = legJointVelocity[leg](joint);
+				// control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
+				// control_effort.velocity[leg * 3 + joint] = 0;
 				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
-				// control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint];
+				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint];
 
 			}
 		}

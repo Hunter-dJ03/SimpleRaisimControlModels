@@ -730,7 +730,7 @@ private:
 		for (int i = 2; i >= 0; --i)
 		{
 			const Eigen::Matrix3d &Rnext = R[i + 1];
-			f[i] = Rnext * f[i + 1] + mass[i] * vdcom[i];
+			f[i] = Rnext * f[i + 1] + mass[i+1] * vdcom[i];
 			n[i] = Il[i] * wd[i + 1] + w[i + 1].cross(Il[i] * w[i + 1]) - f[i].cross(pcoml[i]) + Rnext * n[i + 1] + (Rnext * f[i + 1]).cross(pcoml[i] - oc[i + 1]);
 			tau(i) = n[i].dot(z0);
 		}

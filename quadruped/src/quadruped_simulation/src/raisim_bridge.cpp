@@ -212,6 +212,8 @@ private:
 	 */
 	void update()
 	{
+		// server.integrateWorldThreadSafe();
+		// return;
 		// RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
 		// server.integrateWorldThreadSafe();
 		// return;

@@ -59,6 +59,60 @@ public:
 			q[leg] = legJointPosition[leg];
 		}
 
+			I[0] <<	190521.10058e-6, 0.0, 0.0,
+				0.0, 588124.01325e-6, 0.0,
+				0.0, 0.0, 769095.07872e-6;
+			I[1] <<	3880.429e-6, -0.33101e-6, -0.54295e-6,
+				-0.33101e-6, 1737.42582e-6, -2.41837e-6,
+				-0.54295e-6, -2.41837e-6, 3527.932e-6;
+			I[2] <<	1548.5157e-6, -2160.22133e-6, 174.745e-6,
+				-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
+				174.745e-6, 18.95697e-6, 43277.27545e-6;
+			I[3] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
+				-86.04365e-6, 64.86598e-6, 0.99056e-6,
+				0.14142e-6, 0.99056e-6, 6643.89297e-6;
+			I[4] <<	3880.429e-6, -0.33101e-6, 0.54295e-6,
+				-0.33101e-6, 1737.42582e-6, 2.41837e-6,
+				0.54295e-6, 2.41837e-6, 3527.932e-6;
+			I[5] <<	1548.5157e-6, -2160.22133e-6, 174.745e-6,
+				-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
+				174.745e-6, 18.95697e-6, 43277.27545e-6;
+			I[6] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
+				-86.04365e-6, 64.86598e-6, 0.99056e-6,
+				0.14142e-6, 0.99056e-6, 6643.89297e-6;
+			I[7] <<	3880.429e-6, 0.33101e-6, 0.54295e-6,
+				0.33101e-6, 1737.42582e-6, -2.41837e-6,
+				0.54295e-6, -2.41837e-6, 3527.932e-6;
+			I[8] <<	1548.5157e-6, -2160.22133e-6, -174.745e-6,
+				-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
+				-174.745e-6, -18.95697e-6, 43277.27545e-6;
+			I[9] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
+				-86.04365e-6, 64.86598e-6, 0.99056e-6,
+				0.14142e-6, 0.99056e-6, 6643.89297e-6;
+			I[10] << 3880.429e-6, 0.33101e-6, -0.54295e-6,
+				0.33101e-6, 1737.42582e-6, 2.41837e-6,
+				-0.54295e-6, 2.41837e-6, 3527.932e-6;
+			I[11] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
+				-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
+				-174.745e-6, -18.95697e-6, 43277.27545e-6;
+			I[12] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
+				-86.04365e-6, 64.86598e-6, 0.99056e-6,
+				0.14142e-6, 0.99056e-6, 6643.89297e-6;
+			
+			pcom[0] << 0.0e-3, 0.0e-3, 25.086e-3 ;
+			pcom[1] << 0.00027e-3, 12.11336e-3, -0.78754e-3 ;
+			pcom[2] << 29.30799e-3, 1.23559e-3, -3.87239e-3 ;
+			pcom[3] << -6.46276e-3, -165.43468e-3, 0.24478e-3 ;
+			pcom[4] << 0.00027e-3, 12.11336e-3, 0.78754e-3 ;
+			pcom[5] << 29.30799e-3, 1.23559e-3, -3.87239e-3 ;
+			pcom[6] << -6.46276e-3, -165.43468e-3, 0.24478e-3 ;
+			pcom[7] << 0.00027e-3, -12.11336e-3, 0.78754e-3 ;
+			pcom[8] << 29.30799e-3, 1.23559e-3, 3.87239e-3 ;
+			pcom[9] << -6.46276e-3, -165.43468e-3, -0.24478e-3 ;
+			pcom[10] << 0.00027e-3, -12.11336e-3, -0.78754e-3 ;
+			pcom[11] << 29.30799e-3, 1.23559e-3, 3.87239e-3 ;
+			pcom[12] << -6.46276e-3, -165.43468e-3, -0.24478e-3 ;
+
 		// Set up subscription to encoder feedback for joint states
 		joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
 			"joint_states", 10,
@@ -170,6 +224,8 @@ private:
 				// control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
 				// control_effort.velocity[leg * 3 + joint] = 0;
 				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
+				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint];
+
 			}
 		}
 
@@ -328,10 +384,10 @@ private:
 			l1 *= -1;
 		}
 
-		double x0 = 0.2631; // Base position in x
-		double y0 = 0.1560; // Base position in y
+		double x0 = 0.28375; // Base position in x
+		double y0 = 0.1540; // Base position in y
 		// double z0 = -38.5 - 25.0; // Base position in z
-		double z0 = 0.0; // Base position in z
+		double z0 = 0.025; // Base position in z
 
 		if (leg == 2 || leg == 3)
 		{
@@ -392,10 +448,10 @@ private:
 			l1 *= -1;
 		}
 
-		double x0 = 0.2631; // Base position in x
-		double y0 = 0.1560; // Base position in y
+		double x0 = 0.28375; // Base position in x
+		double y0 = 0.1540; // Base position in y
 		// double z0 = -38.5 - 25.0; // Base position in z
-		double z0 = 0.0; // Base position in z
+		double z0 = 0.025; // Base position in z
 
 		if (leg == 2 || leg == 3)
 		{
@@ -475,9 +531,6 @@ private:
 			l1 *= -1;
 		}
 
-		// Link masses
-		const std::array<double, 3> mass = {1.5, 1.952, 0.219992};
-
 		// Precompute useful terms
 		const double c1 = std::cos(q(0)), s1 = std::sin(q(0));
 		const double c2 = std::cos(q(1)), s2 = std::sin(q(1));
@@ -508,106 +561,120 @@ private:
 
 		// Declare variables for centorid of mass (COM) positions and inertia tensors
 		// @todo: restructure pcom variable similar to I variable
-		Eigen::Vector3d pcom0;
-		Eigen::Vector3d pcom1;
-		Eigen::Vector3d pcom2;
-		std::array<Eigen::Matrix3d, 3> I;
+		// Eigen::Vector3d pcom0;
+		// Eigen::Vector3d pcom1;
+		// Eigen::Vector3d pcom2;
+		// std::array<Eigen::Matrix3d, 3> Il;
+		// std::array<Eigen::Vector3d, 3> pcoml;
 
-		if (leg == 0) // Front Left Leg
-		{
-			pcom0 << 0.000391481, 0.0100851, -0.00369477;
-			pcom1 << 0.07500288, 0.00474222, -0.00461711;
-			pcom2 << -0.0069932, -0.20108691, -0.0000484705;
+		// if (leg == 0) // Front Left Leg
+		// {
+		// 	pcom0 << pcom[1];
+		// 	pcom1 << pcom[2];
+		// 	pcom2 << pcom[3];
 
-			// I₁ expressed about frame 1
-			I[0] << 0.00233403831, -1.250985e-05, -2.28685e-06,
-				-1.250985e-05, 0.00120555158, -5.558186e-05,
-				-2.28685e-06, -5.558186e-05, 0.00180943675;
+		// 	Il[0] = I[1];
+		// 	Il[1] = I[2];
+		// 	Il[2] = I[3];
+			// pcom0 << 0.000391481, 0.0100851, -0.00369477;
+			// pcom1 << 0.07500288, 0.00474222, -0.00461711;
+			// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
 
-			// I₂ expressed about frame 2
-			I[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
-				0.00150249799, 0.02752790728, -4.343353e-05,
-				6.8578831e-04, -4.343353e-05, 0.02715762933;
+			// // I₁ expressed about frame 1
+			// Il[0] << 0.00233403831, -1.250985e-05, -2.28685e-06,
+			// 	-1.250985e-05, 0.00120555158, -5.558186e-05,
+			// 	-2.28685e-06, -5.558186e-05, 0.00180943675;
 
-			// I₃ expressed about frame 3
-			I[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-				-1.0343004e-04, 5.278181e-05, -1.283e-08,
-				2.839e-08, -1.283e-08, 0.00534034752;
-		}
-		else if (leg == 1) // Back Left Leg
-		{
-			pcom0 << 0.000391481, 0.0100851, 0.00369477;
-			pcom1 << 0.07500288, 0.00474222, -0.00461711;
-			pcom2 << -0.0069932, -0.20108691, -0.0000484705;
+			// // I₂ expressed about frame 2
+			// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
+			// 	0.00150249799, 0.02752790728, -4.343353e-05,
+			// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
 
-			// I₁ expressed about frame 1
-			I[0] << 0.00233403831, -1.250985e-05, 2.28685e-06,
-				-1.250985e-05, 0.00120555158, 5.558186e-05,
-				2.28685e-06, 5.558186e-05, 0.00180943675;
+			// // I₃ expressed about frame 3
+			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
+			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+			// 	2.839e-08, -1.283e-08, 0.00534034752;
+		// }
+		// else if (leg == 1) // Back Left Leg
+		// {
+			
+			// pcom0 << 0.000391481, 0.0100851, 0.00369477;
+			// pcom1 << 0.07500288, 0.00474222, -0.00461711;
+			// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
 
-			// I₂ expressed about frame 2
-			I[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
-				0.00150249799, 0.02752790728, -4.343353e-05,
-				6.8578831e-04, -4.343353e-05, 0.02715762933;
+			// // I₁ expressed about frame 1
+			// Il[0] << 0.00233403831, -1.250985e-05, 2.28685e-06,
+			// 	-1.250985e-05, 0.00120555158, 5.558186e-05,
+			// 	2.28685e-06, 5.558186e-05, 0.00180943675;
 
-			// I₃ expressed about frame 3
-			I[2] << 0.00533739913, -1.0343004e-04, -2.839e-08,
-				-1.0343004e-04, 5.278181e-05, -1.283e-08,
-				-2.839e-08, -1.283e-08, 0.00534034752;
-		}
-		else if (leg == 2) // Back Right Leg
-		{
-			pcom0 << 0.000391481, -0.0100851, 0.00369477;
-			pcom1 << 0.07500288, 0.00474222, 0.00461711;
-			pcom2 << -0.0069932, -0.20108691, 0.0000484705;
+			// // I₂ expressed about frame 2
+			// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
+			// 	0.00150249799, 0.02752790728, -4.343353e-05,
+			// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
 
-			// I₁ expressed about frame 1
-			I[0] << 0.00233403831, 1.250985e-05, 2.28685e-06,
-				1.250985e-05, 0.00120555158, -5.558186e-05,
-				2.28685e-06, -5.558186e-05, 0.00180943675;
+			// // I₃ expressed about frame 3
+			// Il[2] << 0.00533739913, -1.0343004e-04, -2.839e-08,
+			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+			// 	-2.839e-08, -1.283e-08, 0.00534034752;
+		// }
+		// else if (leg == 2) // Back Right Leg
+		// {
+			// pcom0 << 0.000391481, -0.0100851, 0.00369477;
+			// pcom1 << 0.07500288, 0.00474222, 0.00461711;
+			// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
 
-			// I₂ expressed about frame 2
-			I[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
-				0.00150249799, 0.02752790728, 4.343353e-05,
-				-6.8578831e-04, 4.343353e-05, 0.02715762933;
+			// // I₁ expressed about frame 1
+			// Il[0] << 0.00233403831, 1.250985e-05, 2.28685e-06,
+			// 	1.250985e-05, 0.00120555158, -5.558186e-05,
+			// 	2.28685e-06, -5.558186e-05, 0.00180943675;
 
-			// I₃ expressed about frame 3
-			I[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-				-1.0343004e-04, 5.278181e-05, -1.283e-08,
-				2.839e-08, -1.283e-08, 0.00534034752;
-		}
-		else if (leg == 3) // Front Right leg
-		{
+			// // I₂ expressed about frame 2
+			// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
+			// 	0.00150249799, 0.02752790728, 4.343353e-05,
+			// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
+
+			// // I₃ expressed about frame 3
+			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
+			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+			// 	2.839e-08, -1.283e-08, 0.00534034752;
+		// }
+		// else if (leg == 3) // Front Right leg
+		// {
 			// Test in single leg
-			pcom0 << 0.000391481, -0.0100851, -0.00369477;
-			pcom1 << 0.07500288, 0.00474222, 0.00461711;
-			pcom2 << -0.0069932, -0.20108691, 0.0000484705;
+			// pcom0 << 0.000391481, -0.0100851, -0.00369477;
+			// pcom1 << 0.07500288, 0.00474222, 0.00461711;
+			// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
 
-			// I₁ expressed about frame 1
-			I[0] << 0.00233403831, 1.250985e-05, -2.28685e-06,
-				1.250985e-05, 0.00120555158, 5.558186e-05,
-				-2.28685e-06, 5.558186e-05, 0.00180943675;
+			// // I₁ expressed about frame 1
+			// Il[0] << 0.00233403831, 1.250985e-05, -2.28685e-06,
+			// 	1.250985e-05, 0.00120555158, 5.558186e-05,
+			// 	-2.28685e-06, 5.558186e-05, 0.00180943675;
 
-			// I₂ expressed about frame 2
-			I[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
-				0.00150249799, 0.02752790728, 4.343353e-05,
-				-6.8578831e-04, 4.343353e-05, 0.02715762933;
+			// // I₂ expressed about frame 2
+			// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
+			// 	0.00150249799, 0.02752790728, 4.343353e-05,
+			// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
 
-			// I₃ expressed about frame 3
-			I[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-				-1.0343004e-04, 5.278181e-05, -1.283e-08,
-				2.839e-08, -1.283e-08, 0.00534034752;
-		}
+			// // I₃ expressed about frame 3
+			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
+			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+			// 	2.839e-08, -1.283e-08, 0.00534034752;
+		// }
 
-		const std::array<Eigen::Vector3d, 3> pcom = {
-			pcom0,
-			pcom1,
-			pcom2};
+		const std::array<Eigen::Vector3d, 3> pcoml = {
+			pcom[leg*3 + 1],
+			pcom[leg*3 + 2],
+			pcom[leg*3 + 3]};
+
+		const std::array<Eigen::Matrix3d, 3> Il = {
+			I[leg*3 + 1],
+			I[leg*3 + 2],
+			I[leg*3 + 3]};
 
 		// Convert inertia tensors from g*cm^2 to kg*m^2
-		I[0] *= 1e-06;
-		I[1] *= 1e-06;
-		I[2] *= 1e-06;
+		// Il[0] *= 1e-06;
+		// Il[1] *= 1e-06;
+		// Il[2] *= 1e-06;
 
 		// Declare Newton Euler variables
 		Eigen::Vector3d z0(0, 0, 1);
@@ -630,7 +697,7 @@ private:
 			w[i + 1] = Rt * wi + qd(i) * z0;
 			wd[i + 1] = Rt * wdi + qdd(i) * z0 + qd(i) * ((Rt * wi).cross(z0));
 			vd[i + 1] = Rt * (vdi + wdi.cross(oc[i]) + wi.cross(wi.cross(oc[i])));
-			vdcom[i] = vd[i + 1] + wd[i + 1].cross(pcom[i]) + w[i + 1].cross(w[i + 1].cross(pcom[i]));
+			vdcom[i] = vd[i + 1] + wd[i + 1].cross(pcoml[i]) + w[i + 1].cross(w[i + 1].cross(pcoml[i]));
 		}
 
 		// Neuton Euler Backward iteration
@@ -641,8 +708,8 @@ private:
 		for (int i = 2; i >= 0; --i)
 		{
 			const Eigen::Matrix3d &Rnext = R[i + 1];
-			f[i] = Rnext * f[i + 1] + mass[i] * vdcom[i];
-			n[i] = I[i] * wd[i + 1] + w[i + 1].cross(I[i] * w[i + 1]) - f[i].cross(pcom[i]) + Rnext * n[i + 1] + (Rnext * f[i + 1]).cross(pcom[i] - oc[i + 1]);
+			f[i] = Rnext * f[i + 1] + mass[i+1] * vdcom[i];
+			n[i] = Il[i] * wd[i + 1] + w[i + 1].cross(Il[i] * w[i + 1]) - f[i].cross(pcoml[i]) + Rnext * n[i + 1] + (Rnext * f[i + 1]).cross(pcoml[i] - oc[i + 1]);
 			tau(i) = n[i].dot(z0);
 		}
 
@@ -671,11 +738,16 @@ private:
 
 	std::vector<Eigen::Vector3d> footPositionWalk;	 // size 4, each is foot position (x, y, z)
 
-	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero(3);
+	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
 
 	double gravity = -9.81;
 	float control_time_step_ms;
-	// float time = 0;
+	// float time = 0;Eigen::Vector3d pcomb = {0.0, 0.0, 0.086};
+	// Eigen::Matrix3d Ib = {
+	// 	190521.10058, 0.0, 0.0,
+	// 	0.0, 588124.01325, 0.0,
+	// 	0.0, 0.0, 769095.07872
+	// };
 	int dof = 12;
 
 	// Waveform A parameters (x)
@@ -697,6 +769,21 @@ private:
 	double stepHeight = 0.2;
 	double stepFrequency = 2.0;
 	double walkOffset[4] = {-stepLength/2, -stepLength/6, stepLength/6, stepLength/2};
+
+	// Eigen::Vector3d pcomb = {0.0, 0.0, 0.086};
+
+	// Eigen::Matrix3d Ib = {
+	// 	190521.10058, 0.0, 0.0,
+	// 	0.0, 588124.01325, 0.0,
+	// 	0.0, 0.0, 769095.07872
+	// };
+	
+
+	std::array<Eigen::Matrix3d, 13> I;
+	std::array<Eigen::Vector3d, 13> pcom;
+	// Link masses
+	const std::array<double, 4> mass = {17.122, 1.952, 2.437, 0.247};
+
 	
 };
 

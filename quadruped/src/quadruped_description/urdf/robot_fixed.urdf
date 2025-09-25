@@ -2,19 +2,19 @@
 <!-- Generated using onshape-to-robot -->
 <!-- Onshape https://cad.onshape.com/documents/c56c7b024fe67f247621574e/w/b966d90009c5abd226fc14d9/e/0b34578ce851a253c0b5c7fa -->
 <robot name="quadrupedV2">
-    <!-- Connection to world frame -->
-    <link name="world" />
-    <joint name="world_to_bodysection" type="fixed">
-      <parent link="world" />
-      <child link="body" />
-      <origin xyz="0 0 1.0" rpy="0 0 0" />
-    </joint>
+  <!-- Connection to world frame -->
+  <link name="world" />
+  <joint name="world_to_bodysection" type="fixed">
+    <parent link="world" />
+    <child link="body" />
+    <origin xyz="0 0 1.0" rpy="0 0 0" />
+  </joint>
   <!-- Link body -->
   <link name="body">
     <inertial>
-      <origin xyz="-3.01551e-17 -5.65408e-18 0.025181" rpy="0 0 0"/>
+      <origin xyz="0.0 0.0 25.086e-3" rpy="0 0 0"/>
       <mass value="17.122"/>
-      <inertia ixx="0.132766" ixy="-9.7192e-09" ixz="-1.0842e-19" iyy="0.526085" iyz="3.72694e-20" izz="0.650268"/>
+      <inertia ixx="190521.10058e-6" ixy="0.0" ixz="-0.0" iyy="588124.01325e-6" iyz="0.0" izz="769095.07872e-6"/>
     </inertial>
     <!-- Part pelvisa -->
     <visual>
@@ -107,9 +107,9 @@
   <!-- Link coxa1 -->
   <link name="coxab">
     <inertial>
-      <origin xyz="4.03875e-07 0.0186208 0.0610688" rpy="0 0 0"/>
-      <mass value="1.35356"/>
-      <inertia ixx="0.00263416" ixy="1.98389e-07" ixz="-2.44106e-07" iyy="0.0014418" iyz="-1.05518e-05" izz="0.00233627"/>
+      <origin xyz="0.00027e-3 12.11336e-3 61.21246e-3" rpy="0 0 0"/>
+      <mass value="1.952"/>
+      <inertia ixx="3880.429e-6" ixy="-0.33101e-6" ixz="-0.54295e-6" iyy="1737.42582e-6" iyz="-2.41837e-6" izz="3527.932e-6"/>
     </inertial>
     <!-- Part coxa -->
     <visual>
@@ -137,9 +137,9 @@
   <!-- Link femur1 -->
   <link name="femurl">
     <inertial>
-      <origin xyz="0.0553083 0.00225325 0.0599805" rpy="0 0 0"/>
-      <mass value="1.4397"/>
-      <inertia ixx="0.00107976" ixy="-0.00141841" ixz="-0.000134109" iyy="0.0328666" iyz="-1.57984e-05" izz="0.0326627"/>
+      <origin xyz="29.30799e-3 1.23559e-3 60.12761e-3" rpy="0 0 0"/>
+      <mass value="2.437"/>
+      <inertia ixx="1548.5157e-6" ixy="-2160.22133e-6" ixz="174.745e-6" iyy="43591.04282e-6" iyz="18.95697e-6" izz="43277.27545e-6"/>
     </inertial>
     <!-- Part femurl -->
     <visual>
@@ -167,9 +167,9 @@
   <!-- Link tibia1 -->
   <link name="tibia">
     <inertial>
-      <origin xyz="-0.00642054 -0.210831 -1.34721e-07" rpy="0 0 0"/>
-      <mass value="0.413241"/>
-      <inertia ixx="0.0101616" ixy="-0.000113615" ixz="-7.64301e-10" iyy="0.00010643" iyz="-6.0556e-09" izz="0.0101722"/>
+      <origin xyz="-6.46276e-3 -165.43468e-3 0.24478e-3" rpy="0 0 0"/>
+      <mass value="0.247"/>
+      <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
     <!-- Part tibia -->
     <visual>
@@ -230,9 +230,9 @@
   <!-- Link coxa2 -->
   <link name="coxaa">
     <inertial>
-      <origin xyz="4.04041e-07 0.0186208 -0.0610688" rpy="0 0 0"/>
-      <mass value="1.35356"/>
-      <inertia ixx="0.00263416" ixy="1.98376e-07" ixz="2.44147e-07" iyy="0.0014418" iyz="1.05518e-05" izz="0.00233627"/>
+      <origin xyz="0.00027e-3 12.11336e-3 -61.21246e-3" rpy="0 0 0"/>
+      <mass value="1.952"/>
+      <inertia ixx="3880.429e-6" ixy="-0.33101e-6" ixz="0.54295e-6" iyy="1737.42582e-6" iyz="2.41837e-6" izz="3527.932e-6"/>
     </inertial>
     <!-- Part coxaa -->
     <visual>
@@ -260,9 +260,9 @@
   <!-- Link femur2 -->
   <link name="femurl_2">
     <inertial>
-      <origin xyz="0.0553083 0.00225325 0.0599805" rpy="0 0 0"/>
-      <mass value="1.4397"/>
-      <inertia ixx="0.00107976" ixy="-0.00141841" ixz="-0.000134109" iyy="0.0328666" iyz="-1.57984e-05" izz="0.0326627"/>
+      <origin xyz="29.30799e-3 1.23559e-3 60.12761e-3" rpy="0 0 0"/>
+      <mass value="2.437"/>
+      <inertia ixx="1548.5157e-6" ixy="-2160.22133e-6" ixz="174.745e-6" iyy="43591.04282e-6" iyz="18.95697e-6" izz="43277.27545e-6"/>
     </inertial>
     <!-- Part femurl_2 -->
     <visual>
@@ -290,9 +290,9 @@
   <!-- Link tibia2 -->
   <link name="tibia_2">
     <inertial>
-      <origin xyz="-0.00642054 -0.210831 -1.34721e-07" rpy="0 0 0"/>
-      <mass value="0.413241"/>
-      <inertia ixx="0.0101616" ixy="-0.000113615" ixz="-7.64301e-10" iyy="0.00010643" iyz="-6.0556e-09" izz="0.0101722"/>
+      <origin xyz="-6.46276e-3 -165.43468e-3 0.24478e-3" rpy="0 0 0"/>
+      <mass value="0.247"/>
+      <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
     <!-- Part tibia_2 -->
     <visual>
@@ -353,9 +353,9 @@
   <!-- Link coxa3 -->
   <link name="coxab_2">
     <inertial>
-      <origin xyz="4.03875e-07 -0.0186208 -0.0610688" rpy="0 0 0"/>
-      <mass value="1.35356"/>
-      <inertia ixx="0.00263416" ixy="-1.98389e-07" ixz="2.44106e-07" iyy="0.0014418" iyz="-1.05518e-05" izz="0.00233627"/>
+      <origin xyz="0.00027e-3 -12.11336e-3 -61.21246e-3" rpy="0 0 0"/>
+      <mass value="1.952"/>
+      <inertia ixx="3880.429e-6" ixy="0.33101e-6" ixz="0.54295e-6" iyy="1737.42582e-6" iyz="-2.41837e-6" izz="3527.932e-6"/>
     </inertial>
     <!-- Part coxab_2 -->
     <visual>
@@ -383,9 +383,9 @@
   <!-- Link femur3 -->
   <link name="femurr">
     <inertial>
-      <origin xyz="0.0553082 0.00225324 -0.0599805" rpy="0 0 0"/>
-      <mass value="1.4397"/>
-      <inertia ixx="0.00107976" ixy="-0.0014184" ixz="0.000134108" iyy="0.0328666" iyz="1.57985e-05" izz="0.0326627"/>
+      <origin xyz="29.30799e-3 1.23559e-3 -60.12761e-3" rpy="0 0 0"/>
+      <mass value="2.437"/>
+      <inertia ixx="1548.5157e-6" ixy="-2160.22133e-6" ixz="-174.745e-6" iyy="43591.04282e-6" iyz="-18.95697e-6" izz="43277.27545e-6"/>
     </inertial>
     <!-- Part femurr -->
     <visual>
@@ -414,9 +414,9 @@
   <!-- Link tibia3 -->
   <link name="tibia_3">
     <inertial>
-      <origin xyz="-0.00642054 -0.210831 -1.34721e-07" rpy="0 0 0"/>
-      <mass value="0.413241"/>
-      <inertia ixx="0.0101616" ixy="-0.000113615" ixz="-7.64301e-10" iyy="0.00010643" iyz="-6.0556e-09" izz="0.0101722"/>
+      <origin xyz="-6.46276e-3 -165.43468e-3 -0.24478e-3" rpy="0 0 0"/>
+      <mass value="0.247"/>
+      <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
     <!-- Part tibia_3 -->
     <visual>
@@ -477,9 +477,9 @@
   <!-- Link coxa4 -->
   <link name="coxaa_2">
     <inertial>
-      <origin xyz="4.04041e-07 -0.0186208 0.0610688" rpy="0 0 0"/>
-      <mass value="1.35356"/>
-      <inertia ixx="0.00263416" ixy="-1.98376e-07" ixz="-2.44147e-07" iyy="0.0014418" iyz="1.05518e-05" izz="0.00233627"/>
+      <origin xyz="0.00027e-3 -12.11336e-3 61.21246e-3" rpy="0 0 0"/>
+      <mass value="1.952"/>
+      <inertia ixx="3880.429e-6" ixy="0.33101e-6" ixz="-0.54295e-6" iyy="1737.42582e-6" iyz="2.41837e-6" izz="3527.932e-6"/>
     </inertial>
     <!-- Part coxaa_2 -->
     <visual>
@@ -507,9 +507,9 @@
   <!-- Link femur4 -->
   <link name="femurr_2">
     <inertial>
-      <origin xyz="0.0554017 0.00225957 -0.0599805" rpy="0 0 0"/>
-      <mass value="1.4397"/>
-      <inertia ixx="0.00107976" ixy="-0.0014184" ixz="0.000134108" iyy="0.0328666" iyz="1.57985e-05" izz="0.0326627"/>
+      <origin xyz="29.30799e-3 1.23559e-3 -60.12761e-3" rpy="0 0 0"/>
+      <mass value="2.437"/>
+      <inertia ixx="1548.5157e-6" ixy="-2160.22133e-6" ixz="-174.745e-6" iyy="43591.04282e-6" iyz="-18.95697e-6" izz="43277.27545e-6"/>
     </inertial>
     <!-- Part femurr_2 -->
     <visual>
@@ -537,9 +537,9 @@
   <!-- Link tibia4 -->
   <link name="tibia_4">
     <inertial>
-      <origin xyz="-0.00642054 -0.210831 -1.34721e-07" rpy="0 0 0"/>
-      <mass value="0.413241"/>
-      <inertia ixx="0.0101616" ixy="-0.000113615" ixz="-7.64301e-10" iyy="0.00010643" iyz="-6.0556e-09" izz="0.0101722"/>
+      <origin xyz="-6.46276e-3 -165.43468e-3 -0.24478e-3" rpy="0 0 0"/>
+      <mass value="0.247"/>
+      <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
     <!-- Part tibia_4 -->
     <visual>

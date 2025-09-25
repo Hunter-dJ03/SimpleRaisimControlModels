@@ -145,7 +145,7 @@ public:
 
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
 		RCLCPP_INFO(this->get_logger(), "RaisimBridge Node Initialised");
 
@@ -347,10 +347,10 @@ private:
 	bool fixed_robot_body;
 
 	// PD Control Gains
-	const double p_gain[12] = {1200.0, 600.0, 400.0, 1200.0, 600.0, 400.0, 1200.0, 600.0, 400.0, 1200.0, 600.0, 400.0};
+	const double p_gain[12] = {1200.0, 900.0, 600.0, 1200.0, 900.0, 600.0, 1200.0, 900.0, 600.0, 1200.0, 900.0, 600.0};
 	// const double d_gain[12] = {4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
 	// const double p_gain[12] = {400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0};
-	const double d_gain[12] = {10.0, 6.0, 6.0, 10.0, 6.0, 6.0, 10.0, 6.0, 6.0, 10.0, 6.0, 6.0};
+	const double d_gain[12] = {10.0, 8.0, 6.0, 10.0, 8.0, 6.0, 10.0, 8.0, 6.0, 10.0, 8.0, 6.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 };

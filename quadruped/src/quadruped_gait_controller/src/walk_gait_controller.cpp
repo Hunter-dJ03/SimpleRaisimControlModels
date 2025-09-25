@@ -206,7 +206,7 @@ private:
 			// }
 
 			// Wait for 1 second before walking
-			if (now_ros.seconds() < 1.0)
+			if (now_ros.seconds() < 2.0)
 			{
 				desired_position(0) = footPositionWalk[leg](0);
 				desired_position(1) = footPositionWalk[leg](1);
@@ -234,7 +234,7 @@ private:
 			foot_state_msg.desired_velocities[leg].z = desired_velocity(2) * 1000.0;
 		}
 
-		if (now_ros.seconds() >= 1.0) {
+		if (now_ros.seconds() >= 2.0) {
 			once = false;
 		}
 
@@ -453,10 +453,10 @@ private:
 	// double period2 = 3.0; // period in seconds
 	// double omega2 = 2.0 * M_PI / period2;
 
-	double forwardStepLength = 0.4;  // 0.375
+	double forwardStepLength = 0.36;  // 0.375
 	double sideStepLength = 0.0; // 0.2
 	double stepHeight = 0.15;
-	double stepDuration = 1000.0;
+	double stepDuration = 1200.0;
 	double forwardWalkOffset[4] = {-forwardStepLength / 2.0, -forwardStepLength / 6.0, forwardStepLength / 2.0, forwardStepLength / 6.0};
 	double sideWalkOffset[4] = {-sideStepLength / 2.0, -sideStepLength / 6.0, sideStepLength / 2.0, sideStepLength / 6.0};
 	double stepTimer[4] = {stepDuration*(0.0/4.0), stepDuration*(3.0/4.0), stepDuration*(1.0/4.0), stepDuration*(2.0/4.0)};

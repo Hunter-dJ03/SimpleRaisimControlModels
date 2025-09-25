@@ -63,10 +63,15 @@ public:
 		dt_ = pd_time_step_ms * 1e-3; // seconds
 		world.setTimeStep(dt_);
 
+		// Set default material properties (restitution, friction, adhesion)
+		world.setDefaultMaterial(1.0, 0.2, 0.0);
+
 		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
 			"/clock", rclcpp::QoS(10).best_effort());
 
-		[[maybe_unused]] auto ground = world.addGround(0);
+		auto ground = world.addGround(0);
+		ground->setAppearance("hidden");
+
 
 		// Variable Gravity option
 		// world.setGravity(Eigen::Vector3d(0, 0, 0));
@@ -124,8 +129,12 @@ public:
 		// CoM Ball Display
 		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1, 0, 0, 1);
 
+		server.setMap("dune");
+
 		// Setup raisim server
 		server.launchServer(8080);
+
+		
 
 		// Wait for server connection
 		RCLCPP_INFO(this->get_logger(), "Awaiting Connection to raisim server");
@@ -136,7 +145,7 @@ public:
 
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10000));
 
 		RCLCPP_INFO(this->get_logger(), "RaisimBridge Node Initialised");
 
@@ -204,6 +213,8 @@ private:
 	void update()
 	{
 		// RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
+		// server.integrateWorldThreadSafe();
+		// return;
 
 		// Update internal state vectors
 		gc = robot->getGeneralizedCoordinate().e();
@@ -242,6 +253,7 @@ private:
 			{
 				// PD Control Law
 				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
+				tau[i] = std::clamp(tau[i], -60.0, 60.0);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
@@ -258,6 +270,7 @@ private:
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
 				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
+				tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i + 7];
@@ -332,10 +345,10 @@ private:
 	bool fixed_robot_body;
 
 	// PD Control Gains
-	const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
-	const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
-	// const double p_gain[12] = {120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0};
-	// const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+	const double p_gain[12] = {1200.0, 600.0, 400.0, 1200.0, 600.0, 400.0, 1200.0, 600.0, 400.0, 1200.0, 600.0, 400.0};
+	// const double d_gain[12] = {4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
+	// const double p_gain[12] = {400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0};
+	const double d_gain[12] = {10.0, 6.0, 6.0, 10.0, 6.0, 6.0, 10.0, 6.0, 6.0, 10.0, 6.0, 6.0};
 	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 };

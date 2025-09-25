@@ -14,6 +14,7 @@ find_package(geometry_msgs REQUIRED)
 # point-pair message
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Endpoint.msg"
+  "msg/FootStates.msg"
   DEPENDENCIES
     std_msgs
     geometry_msgs

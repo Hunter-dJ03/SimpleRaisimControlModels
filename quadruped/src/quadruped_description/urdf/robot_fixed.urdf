@@ -13,7 +13,7 @@
   <link name="body">
     <inertial>
       <origin xyz="-3.01551e-17 -5.65408e-18 0.025181" rpy="0 0 0"/>
-      <mass value="14.7268"/>
+      <mass value="17.122"/>
       <inertia ixx="0.132766" ixy="-9.7192e-09" ixz="-1.0842e-19" iyy="0.526085" iyz="3.72694e-20" izz="0.650268"/>
     </inertial>
     <!-- Part pelvisa -->

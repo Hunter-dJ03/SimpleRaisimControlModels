@@ -136,7 +136,6 @@ public:
 			"full_body_control_command", 10,
 			std::bind(&QuadrupedLegController::fullBodyCommandCallback, this, std::placeholders::_1));
 
-
 		// Set up publishers for desired control effort
 		desired_control_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_desired_control", 10);
 
@@ -155,7 +154,6 @@ public:
 		RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
 
 		std::cout << "ql: " << ql.transpose() << std::endl;
-
 	}
 
 private:
@@ -199,7 +197,8 @@ private:
 		// qb[3] = -0.2;
 		// vl.setZero(); // Assume feet are stationary for now
 
-		qld = trajectoryGenerator(q, footPositionActual, qb, vl);
+		// qld = trajectoryGenerator(q, footPositionActual, qb, vl);
+		qld = trajectoryGeneratorLinearOnly(q, footPositionActual, qb, vl);
 		ql = ql + qld * (control_time_step_ms / 1000.0);
 
 		for (size_t leg = 0; leg < 4; ++leg)
@@ -465,6 +464,50 @@ private:
 		ql = Jl.completeOrthogonalDecomposition().pseudoInverse() * (vl - Jb * qb);
 
 		return ql;
+	}
+
+	Eigen::VectorXd trajectoryGeneratorLinearOnly(
+		const std::vector<Eigen::Vector3d> &q,			 // 4 joint vectors
+		const std::vector<Eigen::Vector3d> &pawPosition, // 4 foot positions
+		const Eigen::VectorXd &qb,						 // 6x1 body twist [v; w]
+		const Eigen::VectorXd &vl)						 // 24x1 desired [v; w] per foot
+	{
+		// Full Jacobian: 24x18
+		Eigen::MatrixXd J_full = computeFullJacobian(q, pawPosition);
+
+		// Split into body and legs
+		Eigen::MatrixXd Jb = J_full.leftCols(6);   // 24x6
+		Eigen::MatrixXd Jl = J_full.rightCols(12); // 24x12
+
+		// Compact linear-only Jacobians: 12 rows total
+		Eigen::MatrixXd Jb_v(12, 6);
+		Eigen::MatrixXd Jl_v(12, 12);
+	    Jl_v.setZero();
+
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			int r = 6 * leg;  // start row in full Jacobian
+			int rv = 3 * leg; // start row in compact Jacobian
+			int c = 3 * leg;  // start col for leg’s joints
+
+			// take only top 3 rows (linear part)
+			Jb_v.block<3, 6>(rv, 0) = Jb.block<3, 6>(r, 0);
+			Jl_v.block<3, 3>(rv, c) = Jl.block<3, 3>(r, c);
+		}
+		
+
+		// Extract only linear desired velocities (first 3 per leg)
+		Eigen::VectorXd vl_v(12);
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			vl_v.segment<3>(3 * leg) = vl.segment<3>(6 * leg); // take top 3 of each 6
+		}
+
+		// Solve least squares
+		Eigen::VectorXd ql = Jl_v.completeOrthogonalDecomposition()
+								 .solve(vl_v - Jb_v * qb);
+
+		return ql; // 12x1 joint velocities
 	}
 
 	/*

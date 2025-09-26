@@ -126,23 +126,17 @@ private:
 		qb.setZero();
 		vl.setZero();
 
-		qb[0] = forwardStepLength / (stepDuration * 3.0/4.0);
+		// qb[0] = forwardStepLength / (stepDuration) * 1000;
 
-		// const double t = now_ros.seconds();
+		qb[2] = A1 * cos(omega1 * (now_ros.seconds()-2));
 
-		// Temporary velocities for foot
-		// double vel_x = A0 * cos(omega0 * t);  // Desired velocity in x direction
-		// double vel_y = -A1 * cos(omega1 * t); // Desired velocity in y direction
-		// double vel_z = A2 * sin(omega2 * t);  // Desired velocity in z direction
+		// qb[0] = 0.0;
+		// qb[1] = 0.0;
+		// qb[2] = 0.0;
+		// qb[3] = 0.0;
+		// qb[4] = 0.0;
+		// qb[5] = 0.0;
 
-		// double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
-		// double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
-		// double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
-
-		// Desired Velocity vector paraeter
-		// Eigen::VectorXd desired_velocity(3);
-		// Eigen::VectorXd desired_position(3);
-		// desired_velocity.setZero();
 
 		// RCLCPP_INFO(this->get_logger(), "Step Timers: %f, %f, %f, %f", stepTimer[0], stepTimer[1], stepTimer[2], stepTimer[3]);
 
@@ -152,66 +146,23 @@ private:
 			if (stepTimer[leg] >= stepDuration)
 			{
 				stepTimer[leg] = 0;
-				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %d", leg);
+				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %ld", leg);
 			}
-			
-			// vl[leg * 3 + 0] = 0.0;
-			// vl[leg * 3 + 1] = 0.0;
-			// vl[leg * 3 + 2] = 0.0;
-			// vl[leg * 3 + 3] = 0.0;
-			// vl[leg * 3 + 4] = 0.0;
-			// vl[leg * 3 + 5] = 0.0;
+		
 
 			if (stepTimer[leg] < stepDuration/4) // Swing phase
 			{
-			// 	// desired_position(0) = footPositionInit[leg](0) + forwardStepLength * (a[6]*pow(stepTimer[leg],6) + a[5]*pow(stepTimer[leg],5) + a[4]*pow(stepTimer[leg],4) + a[3]*pow(stepTimer[leg],3) + a[2]*pow(stepTimer[leg],2) + a[1]*stepTimer[leg] + a[0]);
-			// 	// desired_position(1) = footPositionInit[leg](1) + sideStepLength * (a[6]*pow(stepTimer[leg],6) + a[5]*pow(stepTimer[leg],5) + a[4]*pow(stepTimer[leg],4) + a[3]*pow(stepTimer[leg],3) + a[2]*pow(stepTimer[leg],2) + a[1]*stepTimer[leg] + a[0]);
-			// 	// desired_position(2) = footPositionInit[leg](2) + stepHeight * (b[6]*pow(stepTimer[leg],6) + b[5]*pow(stepTimer[leg],5) + b[4]*pow(stepTimer[leg],4) + b[3]*pow(stepTimer[leg],3) + b[2]*pow(stepTimer[leg],2) + b[1]*stepTimer[leg] + b[0]);
 
-				vl[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				vl[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				vl[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
+				// vl[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
+				// vl[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
+				// vl[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
 			}
-			// else // Stance phase
-			// {
-			// 	// desired_position(0) = footPositionInit[leg](0) + forwardStepLength * (1.0/2.0 - ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))); 
-			// 	// desired_position(1) = footPositionInit[leg](1) + sideStepLength * (1.0/2.0 - ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))); 
-			// 	// desired_position(2) = footPositionInit[leg](2);
-
-			// 	vl[leg * 3 + 0] = 0;
-			// 	vl[leg * 3 + 0] = 0;
-			// 	vl[leg * 3 + 0] = 0;
-			// }
-
-			// if (stepTimer[leg] < stepDuration/4) // Swing phase
-			// {
-			// 	desired_position(0) = footPositionInit[leg](0) + forwardStepLength * ((4*stepTimer[leg])/(stepDuration)) - forwardStepLength/2;
-			// 	desired_position(1) = footPositionInit[leg](1);
-			// 	desired_position(2) = footPositionInit[leg](2) + stepHeight * sin(M_PI * (4*stepTimer[leg])/(stepDuration));
-
-			// 	desired_velocity(0) = forwardStepLength * (4/(stepDuration));
-			// 	desired_velocity(1) = 0;
-			// 	desired_velocity(2) = 4 * M_PI * stepHeight / stepDuration * cos(M_PI * (4*stepTimer[leg])/(stepDuration));
-			// }
-			// else // Stance phase
-			// {
-			// 	desired_position(0) = footPositionInit[leg](0) + forwardStepLength * (1- ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))) - forwardStepLength/2; 
-			// 	desired_position(1) = footPositionInit[leg](1);
-			// 	desired_position(2) = footPositionInit[leg](2);
-
-			// 	desired_velocity(0) = -forwardStepLength * (1/(stepDuration - 1000));
-			// 	desired_velocity(1) = 0;
-			// 	desired_velocity(2) = 0;
-			// }
 
 			// Wait for 1 second before walking
 			if (now_ros.seconds() >= 2.0)
 			{
 				stepTimer[leg] += control_time_step_ms;
 			} 
-
-			// stepTimer[leg] += control_time_step_ms;
-
 		}
 
 		if (now_ros.seconds() < 2.0)
@@ -222,7 +173,7 @@ private:
 
 		for (size_t i = 0; i < 6; ++i)
 		{
-			command_msg.qb[i] = qb[i] *1000; // Convert to m/s from m/ms
+			command_msg.qb[i] = qb[i]; // Convert to m/s from m/ms
 		}
 
 		for (size_t i = 0; i < 24; ++i)
@@ -230,11 +181,6 @@ private:
 			command_msg.vl[i] = vl[i] * 1000; // Convert to rad/s from rad/ms
 		}
 
-		// if (now_ros.seconds() >= 2.0) {
-		// 	once = false;
-		// }
-
-		// foot_state_publisher_->publish(foot_state_msg);
 
 		full_body_command->publish(command_msg);
 	}
@@ -441,24 +387,24 @@ private:
 	int dof = 12;
 
 	// // Waveform A parameters (x)
-	// double A0 = 0.0;	  // amplitude
-	// double period0 = 6.0; // period in seconds
-	// double omega0 = 2.0 * M_PI / period0;
+	double A0 = 0.1;	  // amplitude
+	double period0 = 3.0; // period in seconds
+	double omega0 = 2.0 * M_PI / period0;
 
-	// // Waveform B parameters (y)
-	// double A1 = 0.0;	  // amplitude
-	// double period1 = 3.0; // period in seconds
-	// double omega1 = 2.0 * M_PI / period1;
+	// Waveform B parameters (y)
+	double A1 = 0.3;	  // amplitude
+	double period1 = 3.0; // period in seconds
+	double omega1 = 2.0 * M_PI / period1;
 
-	// // Waveform C parameters (z)
-	// double A2 = 0.0;	  // amplitude
-	// double period2 = 3.0; // period in seconds
-	// double omega2 = 2.0 * M_PI / period2;
+	// Waveform C parameters (z)
+	double A2 = 0.0;	  // amplitude
+	double period2 = 3.0; // period in seconds
+	double omega2 = 2.0 * M_PI / period2;
 
-	double forwardStepLength = 0.1;  // 0.375
+	double forwardStepLength = 0.3;  // 0.375
 	double sideStepLength = 0.0; // 0.2
 	double stepHeight = 0.15;
-	double stepDuration = 4000.0;
+	double stepDuration = 2000.0;
 	double forwardWalkOffset[4] = {-forwardStepLength / 2.0, -forwardStepLength / 6.0, forwardStepLength / 2.0, forwardStepLength / 6.0};
 	double sideWalkOffset[4] = {-sideStepLength / 2.0, -sideStepLength / 6.0, sideStepLength / 2.0, sideStepLength / 6.0};
 	double stepTimer[4] = {stepDuration*(0.0/4.0), stepDuration*(3.0/4.0), stepDuration*(1.0/4.0), stepDuration*(2.0/4.0)};

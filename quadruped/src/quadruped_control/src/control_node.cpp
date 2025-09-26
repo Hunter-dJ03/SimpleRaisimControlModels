@@ -29,6 +29,9 @@ public:
 
 		footPositionWalk = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
+		qld = Eigen::VectorXd::Zero(12);
+		ql = Eigen::VectorXd::Zero(12);
+
 		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
 		{
@@ -57,61 +60,65 @@ public:
 			desired_footVelocity[leg] = zero3;
 
 			q[leg] = legJointPosition[leg];
+
+			ql[leg * 3 + 0] = q[leg](0);
+			ql[leg * 3 + 1] = q[leg](1);
+			ql[leg * 3 + 2] = q[leg](2);
 		}
 
-			I[0] <<	190521.10058e-6, 0.0, 0.0,
-				0.0, 588124.01325e-6, 0.0,
-				0.0, 0.0, 769095.07872e-6;
-			I[1] <<	3880.429e-6, -0.33101e-6, -0.54295e-6,
-				-0.33101e-6, 1737.42582e-6, -2.41837e-6,
-				-0.54295e-6, -2.41837e-6, 3527.932e-6;
-			I[2] <<	1548.5157e-6, -2160.22133e-6, 174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
-				174.745e-6, 18.95697e-6, 43277.27545e-6;
-			I[3] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			I[4] <<	3880.429e-6, -0.33101e-6, 0.54295e-6,
-				-0.33101e-6, 1737.42582e-6, 2.41837e-6,
-				0.54295e-6, 2.41837e-6, 3527.932e-6;
-			I[5] <<	1548.5157e-6, -2160.22133e-6, 174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
-				174.745e-6, 18.95697e-6, 43277.27545e-6;
-			I[6] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			I[7] <<	3880.429e-6, 0.33101e-6, 0.54295e-6,
-				0.33101e-6, 1737.42582e-6, -2.41837e-6,
-				0.54295e-6, -2.41837e-6, 3527.932e-6;
-			I[8] <<	1548.5157e-6, -2160.22133e-6, -174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
-				-174.745e-6, -18.95697e-6, 43277.27545e-6;
-			I[9] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			I[10] << 3880.429e-6, 0.33101e-6, -0.54295e-6,
-				0.33101e-6, 1737.42582e-6, 2.41837e-6,
-				-0.54295e-6, 2.41837e-6, 3527.932e-6;
-			I[11] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
-				-174.745e-6, -18.95697e-6, 43277.27545e-6;
-			I[12] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			
-			pcom[0] << 0.0e-3, 0.0e-3, 25.086e-3 ;
-			pcom[1] << 0.00027e-3, 12.11336e-3, -0.78754e-3 ;
-			pcom[2] << 29.30799e-3, 1.23559e-3, -3.87239e-3 ;
-			pcom[3] << -6.46276e-3, -165.43468e-3, 0.24478e-3 ;
-			pcom[4] << 0.00027e-3, 12.11336e-3, 0.78754e-3 ;
-			pcom[5] << 29.30799e-3, 1.23559e-3, -3.87239e-3 ;
-			pcom[6] << -6.46276e-3, -165.43468e-3, 0.24478e-3 ;
-			pcom[7] << 0.00027e-3, -12.11336e-3, 0.78754e-3 ;
-			pcom[8] << 29.30799e-3, 1.23559e-3, 3.87239e-3 ;
-			pcom[9] << -6.46276e-3, -165.43468e-3, -0.24478e-3 ;
-			pcom[10] << 0.00027e-3, -12.11336e-3, -0.78754e-3 ;
-			pcom[11] << 29.30799e-3, 1.23559e-3, 3.87239e-3 ;
-			pcom[12] << -6.46276e-3, -165.43468e-3, -0.24478e-3 ;
+		I[0] << 190521.10058e-6, 0.0, 0.0,
+			0.0, 588124.01325e-6, 0.0,
+			0.0, 0.0, 769095.07872e-6;
+		I[1] << 3880.429e-6, -0.33101e-6, -0.54295e-6,
+			-0.33101e-6, 1737.42582e-6, -2.41837e-6,
+			-0.54295e-6, -2.41837e-6, 3527.932e-6;
+		I[2] << 1548.5157e-6, -2160.22133e-6, 174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
+			174.745e-6, 18.95697e-6, 43277.27545e-6;
+		I[3] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+		I[4] << 3880.429e-6, -0.33101e-6, 0.54295e-6,
+			-0.33101e-6, 1737.42582e-6, 2.41837e-6,
+			0.54295e-6, 2.41837e-6, 3527.932e-6;
+		I[5] << 1548.5157e-6, -2160.22133e-6, 174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
+			174.745e-6, 18.95697e-6, 43277.27545e-6;
+		I[6] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+		I[7] << 3880.429e-6, 0.33101e-6, 0.54295e-6,
+			0.33101e-6, 1737.42582e-6, -2.41837e-6,
+			0.54295e-6, -2.41837e-6, 3527.932e-6;
+		I[8] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
+			-174.745e-6, -18.95697e-6, 43277.27545e-6;
+		I[9] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+		I[10] << 3880.429e-6, 0.33101e-6, -0.54295e-6,
+			0.33101e-6, 1737.42582e-6, 2.41837e-6,
+			-0.54295e-6, 2.41837e-6, 3527.932e-6;
+		I[11] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
+			-174.745e-6, -18.95697e-6, 43277.27545e-6;
+		I[12] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+
+		pcom[0] << 0.0e-3, 0.0e-3, 25.086e-3;
+		pcom[1] << 0.00027e-3, 12.11336e-3, -0.78754e-3;
+		pcom[2] << 29.30799e-3, 1.23559e-3, -3.87239e-3;
+		pcom[3] << -6.46276e-3, -165.43468e-3, 0.24478e-3;
+		pcom[4] << 0.00027e-3, 12.11336e-3, 0.78754e-3;
+		pcom[5] << 29.30799e-3, 1.23559e-3, -3.87239e-3;
+		pcom[6] << -6.46276e-3, -165.43468e-3, 0.24478e-3;
+		pcom[7] << 0.00027e-3, -12.11336e-3, 0.78754e-3;
+		pcom[8] << 29.30799e-3, 1.23559e-3, 3.87239e-3;
+		pcom[9] << -6.46276e-3, -165.43468e-3, -0.24478e-3;
+		pcom[10] << 0.00027e-3, -12.11336e-3, -0.78754e-3;
+		pcom[11] << 29.30799e-3, 1.23559e-3, 3.87239e-3;
+		pcom[12] << -6.46276e-3, -165.43468e-3, -0.24478e-3;
 
 		// Set up subscription to encoder feedback for joint states
 		joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -171,61 +178,77 @@ private:
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
 		endpoint_msg.header.stamp = stamp;
 
-		// const double t = now_ros.seconds();
-
-
-		// Temporary velocities for foot
-		// double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
-		// double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
-		// double vel_z = A2 * sin(omega2 * t); // Desired velocity in z direction
-
-		// double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
-		// double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
-		// double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
-
-
 		// Desired Velocity vector paraeter
-		Eigen::VectorXd desired_velocity(3);
-		Eigen::VectorXd desired_position(3);
+		// Eigen::VectorXd desired_velocity(3);
+		// Eigen::VectorXd desired_position(3);
 		// desired_velocity.setZero();
 
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
 
-			desired_position = desired_footPosition[leg];
-			desired_velocity = desired_footVelocity[leg];
+			// desired_position = desired_footPosition[leg];
+			// desired_velocity = desired_footVelocity[leg];
 
 			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Position: %f, %f, %f", leg, desired_position(0), desired_position(1), desired_position(2));
-			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Velocity: %f, %f, %f", leg, desired_velocity(0), desired_velocity(1), desired_velocity(2));	
+			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Velocity: %f, %f, %f", leg, desired_velocity(0), desired_velocity(1), desired_velocity(2));
 
-			footPosition[leg] = desired_position;
+			// footPosition[leg] = desired_position;
 
 			// Calculate the gravity and corcent torques
-			Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
-			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0, leg);
+			// Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
+			// Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0, leg);
 
 			// Calculate leg forward kinematics
-			Eigen::Vector3d fk = forwardKinematics(q[leg], leg);
-			footPositionActual[leg] = fk;
+			// Eigen::Vector3d fk = forwardKinematics(q[leg], leg);
+			footPositionActual[leg] = forwardKinematics(q[leg], leg);
 
 			// Use calculated jacobian and pseudo-inverse to calculate joint velocities for the leg
-			Eigen::MatrixXd jacobian = computeJacobian(q[leg], leg);
-			auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
-			legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
+			// Eigen::MatrixXd jacobian = computeJacobian(q[leg], leg);
+			// jacobian = jacobian.topRows(3);
+			// auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
+			// legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
 
-			legJointPosition[leg] = inverseKinematics(desired_position, leg);
+			// legJointPosition[leg] = inverseKinematics(desired_position, leg);
 
 			// Populate control effort message for the leg
+			// for (int joint = 0; joint < 3; ++joint)
+			// {
+			// 	control_effort.position[leg * 3 + joint] = legJointPosition[leg](joint);
+			// 	control_effort.velocity[leg * 3 + joint] = legJointVelocity[leg](joint);
+			// 	// control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
+			// 	// control_effort.velocity[leg * 3 + joint] = 0;
+			// 	control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
+			// 	control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint];
+			// }
+		}
+
+		qld = trajectoryGenerator(q, footPositionActual);
+		ql = ql + qld * (control_time_step_ms / 1000.0);
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			// Slice from global vectors
+			const Eigen::Vector3d ql_leg = ql.segment<3>(3 * leg);
+			const Eigen::Vector3d qld_leg = qld.segment<3>(3 * leg);
+
+			// Keep your per-leg arrays updated (if you use them elsewhere)
+			legJointPosition[leg] = ql_leg;
+			legJointVelocity[leg] = qld_leg;
+
+			// Optional dynamics (commented for now)
+			// Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
+			Eigen::VectorXd NE_Gravity_torques  = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
+			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0,        leg);
+
+			// Populate control effort message for this leg
 			for (int joint = 0; joint < 3; ++joint)
 			{
-				control_effort.position[leg * 3 + joint] = legJointPosition[leg](joint);
-				control_effort.velocity[leg * 3 + joint] = legJointVelocity[leg](joint);
-				// control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
-				// control_effort.velocity[leg * 3 + joint] = 0;
-				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
-				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint];
-
+				const int idx = static_cast<int>(leg) * 3 + joint;
+				control_effort.position[idx] = ql_leg(joint);
+				control_effort.velocity[idx] = qld_leg(joint);
+				control_effort.effort[idx]   = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
+				// control_effort.effort[idx] = 0.0; // simple for now
 			}
 		}
 
@@ -252,7 +275,7 @@ private:
 	/*
 	 * Callback that updates the current joint states based on encoder feedback.
 	 * Receives current joint states and saves the most recent to internal variables.
-	 * 
+	 *
 	 * @param msg The message containing the joint states.
 	 */
 	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
@@ -283,7 +306,7 @@ private:
 	/*
 	 * Callback that updates the desired foot states based on incoming messages.
 	 * Receives desired foot positions and velocities and saves the most recent to internal variables.
-	 * 
+	 *
 	 * @param msg The message containing the desired foot states.
 	 */
 	void footStateCallback(const quadruped_interfaces::msg::FootStates::SharedPtr msg)
@@ -302,14 +325,15 @@ private:
 				msg->desired_velocities[leg].z);
 		};
 
-		return; 
+		return;
 	};
 
 	/*
 	 * Computes the Jacobian matrix for a 3-DOF leg based on the joint angles.
 	 * Contains the full 6x3 matric however only using linear velocity components
 	 *
-	 * @param q The joint angles of the leg (3 DOF).
+	 * @param 		Eigen::VectorXd ql;
+		ql = trajectoryGenerator()q The joint angles of the leg (3 DOF).
 	 * @param leg The index of the leg (0-3).
 	 *
 	 * @return The Jacobian matrix (3x3) for the leg.
@@ -333,17 +357,41 @@ private:
 			l1 *= -1;
 		}
 
-		// Compute the Jacobian matrix for the 3-DOF leg (Currently ignored roll, pitch, and yaw)
-		Eigen::MatrixXd J(3, 3);
-		J << 0,
-			l2 * std::sin(theta2) - l3 * std::cos(theta2 + theta3),
-			-l3 * std::cos(theta2 + theta3),
+		Eigen::VectorXd J1(6);
+		J1 << 0,
 			l1 * std::sin(theta1) - l2 * std::cos(theta1) * std::sin(theta2) + l3 * std::cos(theta1) * std::cos(theta2) * std::cos(theta3) - l3 * std::cos(theta1) * std::sin(theta2) * std::sin(theta3),
-			-std::sin(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
-			-l3 * std::sin(theta2 + theta3) * std::sin(theta1),
 			l3 * std::cos(theta2) * std::cos(theta3) * std::sin(theta1) - l2 * std::sin(theta1) * std::sin(theta2) - l1 * std::cos(theta1) - l3 * std::sin(theta1) * std::sin(theta2) * std::sin(theta3),
+			1,
+			0,
+			0; // Rotation axis for joint 1
+
+		Eigen::VectorXd J2(6);
+		J2 << l2 * std::sin(theta2) - l3 * std::cos(theta2 + theta3),
+			-std::sin(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
 			std::cos(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
-			l3 * std::sin(theta2 + theta3) * std::cos(theta1);
+			0,
+			std::cos(theta1),
+			std::sin(theta1); // Rotation axis for joint 2
+
+		Eigen::VectorXd J3(6);
+		J3 << -l3 * std::cos(theta2 + theta3),
+			-l3 * std::sin(theta2 + theta3) * std::sin(theta1),
+			l3 * std::sin(theta2 + theta3) * std::cos(theta1),
+			0,
+			std::cos(theta1),
+			std::sin(theta1); // Rotation axis for joint 3
+
+		// Compute the Jacobian matrix for the 3-DOF leg (Currently ignored roll, pitch, and yaw)
+		Eigen::MatrixXd J(6, 3);
+		// J << 0,
+		// 	l2 * std::sin(theta2) - l3 * std::cos(theta2 + theta3),
+		// 	-l3 * std::cos(theta2 + theta3),
+		// 	l1 * std::sin(theta1) - l2 * std::cos(theta1) * std::sin(theta2) + l3 * std::cos(theta1) * std::cos(theta2) * std::cos(theta3) - l3 * std::cos(theta1) * std::sin(theta2) * std::sin(theta3),
+		// 	-std::sin(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
+		// 	-l3 * std::sin(theta2 + theta3) * std::sin(theta1),
+		// 	l3 * std::cos(theta2) * std::cos(theta3) * std::sin(theta1) - l2 * std::sin(theta1) * std::sin(theta2) - l1 * std::cos(theta1) - l3 * std::sin(theta1) * std::sin(theta2) * std::sin(theta3),
+		// 	std::cos(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
+		// 	l3 * std::sin(theta2 + theta3) * std::cos(theta1);
 		// 1,
 		// 0,
 		// 0,
@@ -354,7 +402,84 @@ private:
 		// std::sin(theta1),
 		// std::sin(theta1),
 
+		J.col(0) = J1;
+		J.col(1) = J2;
+		J.col(2) = J3;
+
 		return J;
+	}
+
+	/*
+	 * Computes the Jacobian matrix for full floating body kinematics.
+	 * Contains the full matrix
+	 *
+	 * @param q The joint angles of the system
+	 * @param pawPosition The positions of the feet in world coordinates
+	 *
+	 * @return The Jacobian matrix (3x3) for the leg.
+	 */
+	Eigen::MatrixXd computeFullJacobian(const std::vector<Eigen::Vector3d> &q,
+										const std::vector<Eigen::Vector3d> &pawPosition)
+	{
+
+		std::vector<Eigen::MatrixXd> J_legs(4); // 4 sets of 6x3
+		std::vector<Eigen::MatrixXd> J_body(4); // 4 sets of 6x6
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			J_legs[leg] = computeJacobian(q[leg], leg);
+
+			J_body[leg] = Eigen::MatrixXd::Zero(6, 6);
+			J_body[leg].block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
+			J_body[leg].block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
+
+			Eigen::Matrix3d S;
+			S << 0.0, -pawPosition[leg].z(), pawPosition[leg].y(),
+				pawPosition[leg].z(), 0.0, -pawPosition[leg].x(),
+				-pawPosition[leg].y(), pawPosition[leg].x(), 0.0;
+
+			J_body[leg].block<3, 3>(0, 3) = -S; // Skew-symmetric matrix for cross product
+		}
+
+		Eigen::MatrixXd J_full(24, 18);
+		J_full.setZero();
+
+		J_full.block<6, 6>(0, 0) = J_body[0];
+		J_full.block<6, 6>(6, 0) = J_body[1];
+		J_full.block<6, 6>(12, 0) = J_body[2];
+		J_full.block<6, 6>(18, 0) = J_body[3];
+
+		J_full.block<6, 3>(0, 6) = J_legs[0];
+		J_full.block<6, 3>(6, 9) = J_legs[1];
+		J_full.block<6, 3>(12, 12) = J_legs[2];
+		J_full.block<6, 3>(18, 15) = J_legs[3];
+
+		return J_full;
+	}
+
+	Eigen::VectorXd trajectoryGenerator(const std::vector<Eigen::Vector3d> &q,
+										const std::vector<Eigen::Vector3d> &pawPosition)
+	{
+		// Get Full Jacobian matric
+		Eigen::MatrixXd J_full = computeFullJacobian(q, pawPosition);
+
+		Eigen::MatrixXd Jb = J_full.leftCols(6);   // Body velocity part
+		Eigen::MatrixXd Jl = J_full.rightCols(12); // Leg velocity part
+
+		// Body velocity
+		Eigen::VectorXd qb(6);
+		qb.setZero(); // Assume body is stationary for now
+
+		// Desired foot velocity
+		Eigen::VectorXd vp(24);
+		vp.setZero(); // Assume feet are stationary for now
+
+		// Joint velocity
+		Eigen::VectorXd ql(12);
+
+		ql = Jl.completeOrthogonalDecomposition().pseudoInverse() * (vp - Jb * qb);
+
+		return ql;
 	}
 
 	/*
@@ -385,7 +510,7 @@ private:
 		}
 
 		double x0 = 0.28375; // Base position in x
-		double y0 = 0.1540; // Base position in y
+		double y0 = 0.1540;	 // Base position in y
 		// double z0 = -38.5 - 25.0; // Base position in z
 		double z0 = 0.025; // Base position in z
 
@@ -449,7 +574,7 @@ private:
 		}
 
 		double x0 = 0.28375; // Base position in x
-		double y0 = 0.1540; // Base position in y
+		double y0 = 0.1540;	 // Base position in y
 		// double z0 = -38.5 - 25.0; // Base position in z
 		double z0 = 0.025; // Base position in z
 
@@ -576,100 +701,100 @@ private:
 		// 	Il[0] = I[1];
 		// 	Il[1] = I[2];
 		// 	Il[2] = I[3];
-			// pcom0 << 0.000391481, 0.0100851, -0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, -0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
+		// pcom0 << 0.000391481, 0.0100851, -0.00369477;
+		// pcom1 << 0.07500288, 0.00474222, -0.00461711;
+		// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
 
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, -1.250985e-05, -2.28685e-06,
-			// 	-1.250985e-05, 0.00120555158, -5.558186e-05,
-			// 	-2.28685e-06, -5.558186e-05, 0.00180943675;
+		// // I₁ expressed about frame 1
+		// Il[0] << 0.00233403831, -1.250985e-05, -2.28685e-06,
+		// 	-1.250985e-05, 0.00120555158, -5.558186e-05,
+		// 	-2.28685e-06, -5.558186e-05, 0.00180943675;
 
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, -4.343353e-05,
-			// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
+		// // I₂ expressed about frame 2
+		// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
+		// 	0.00150249799, 0.02752790728, -4.343353e-05,
+		// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
 
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	2.839e-08, -1.283e-08, 0.00534034752;
+		// // I₃ expressed about frame 3
+		// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
+		// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+		// 	2.839e-08, -1.283e-08, 0.00534034752;
 		// }
 		// else if (leg == 1) // Back Left Leg
 		// {
-			
-			// pcom0 << 0.000391481, 0.0100851, 0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, -0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
 
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, -1.250985e-05, 2.28685e-06,
-			// 	-1.250985e-05, 0.00120555158, 5.558186e-05,
-			// 	2.28685e-06, 5.558186e-05, 0.00180943675;
+		// pcom0 << 0.000391481, 0.0100851, 0.00369477;
+		// pcom1 << 0.07500288, 0.00474222, -0.00461711;
+		// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
 
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, -4.343353e-05,
-			// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
+		// // I₁ expressed about frame 1
+		// Il[0] << 0.00233403831, -1.250985e-05, 2.28685e-06,
+		// 	-1.250985e-05, 0.00120555158, 5.558186e-05,
+		// 	2.28685e-06, 5.558186e-05, 0.00180943675;
 
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, -2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	-2.839e-08, -1.283e-08, 0.00534034752;
+		// // I₂ expressed about frame 2
+		// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
+		// 	0.00150249799, 0.02752790728, -4.343353e-05,
+		// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
+
+		// // I₃ expressed about frame 3
+		// Il[2] << 0.00533739913, -1.0343004e-04, -2.839e-08,
+		// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+		// 	-2.839e-08, -1.283e-08, 0.00534034752;
 		// }
 		// else if (leg == 2) // Back Right Leg
 		// {
-			// pcom0 << 0.000391481, -0.0100851, 0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, 0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
+		// pcom0 << 0.000391481, -0.0100851, 0.00369477;
+		// pcom1 << 0.07500288, 0.00474222, 0.00461711;
+		// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
 
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, 1.250985e-05, 2.28685e-06,
-			// 	1.250985e-05, 0.00120555158, -5.558186e-05,
-			// 	2.28685e-06, -5.558186e-05, 0.00180943675;
+		// // I₁ expressed about frame 1
+		// Il[0] << 0.00233403831, 1.250985e-05, 2.28685e-06,
+		// 	1.250985e-05, 0.00120555158, -5.558186e-05,
+		// 	2.28685e-06, -5.558186e-05, 0.00180943675;
 
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, 4.343353e-05,
-			// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
+		// // I₂ expressed about frame 2
+		// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
+		// 	0.00150249799, 0.02752790728, 4.343353e-05,
+		// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
 
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	2.839e-08, -1.283e-08, 0.00534034752;
+		// // I₃ expressed about frame 3
+		// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
+		// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+		// 	2.839e-08, -1.283e-08, 0.00534034752;
 		// }
 		// else if (leg == 3) // Front Right leg
 		// {
-			// Test in single leg
-			// pcom0 << 0.000391481, -0.0100851, -0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, 0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
+		// Test in single leg
+		// pcom0 << 0.000391481, -0.0100851, -0.00369477;
+		// pcom1 << 0.07500288, 0.00474222, 0.00461711;
+		// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
 
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, 1.250985e-05, -2.28685e-06,
-			// 	1.250985e-05, 0.00120555158, 5.558186e-05,
-			// 	-2.28685e-06, 5.558186e-05, 0.00180943675;
+		// // I₁ expressed about frame 1
+		// Il[0] << 0.00233403831, 1.250985e-05, -2.28685e-06,
+		// 	1.250985e-05, 0.00120555158, 5.558186e-05,
+		// 	-2.28685e-06, 5.558186e-05, 0.00180943675;
 
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, 4.343353e-05,
-			// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
+		// // I₂ expressed about frame 2
+		// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
+		// 	0.00150249799, 0.02752790728, 4.343353e-05,
+		// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
 
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	2.839e-08, -1.283e-08, 0.00534034752;
+		// // I₃ expressed about frame 3
+		// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
+		// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
+		// 	2.839e-08, -1.283e-08, 0.00534034752;
 		// }
 
 		const std::array<Eigen::Vector3d, 3> pcoml = {
-			pcom[leg*3 + 1],
-			pcom[leg*3 + 2],
-			pcom[leg*3 + 3]};
+			pcom[leg * 3 + 1],
+			pcom[leg * 3 + 2],
+			pcom[leg * 3 + 3]};
 
 		const std::array<Eigen::Matrix3d, 3> Il = {
-			I[leg*3 + 1],
-			I[leg*3 + 2],
-			I[leg*3 + 3]};
+			I[leg * 3 + 1],
+			I[leg * 3 + 2],
+			I[leg * 3 + 3]};
 
 		// Convert inertia tensors from g*cm^2 to kg*m^2
 		// Il[0] *= 1e-06;
@@ -708,7 +833,7 @@ private:
 		for (int i = 2; i >= 0; --i)
 		{
 			const Eigen::Matrix3d &Rnext = R[i + 1];
-			f[i] = Rnext * f[i + 1] + mass[i+1] * vdcom[i];
+			f[i] = Rnext * f[i + 1] + mass[i + 1] * vdcom[i];
 			n[i] = Il[i] * wd[i + 1] + w[i + 1].cross(Il[i] * w[i + 1]) - f[i].cross(pcoml[i]) + Rnext * n[i + 1] + (Rnext * f[i + 1]).cross(pcoml[i] - oc[i + 1]);
 			tau(i) = n[i].dot(z0);
 		}
@@ -727,18 +852,24 @@ private:
 	std::vector<double> init_pos;
 	std::vector<double> link_lengths;
 
-	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
-	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
-	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
-	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> legJointPosition;	   // size 4, each is 3-DOF joint position
+	std::vector<Eigen::Vector3d> legJointVelocity;	   // size 4, each is 3-DOF joint velocity
+	std::vector<Eigen::Vector3d> footPosition;		   // size 4, each is foot position (x, y, z)
+	std::vector<Eigen::Vector3d> footPositionActual;   // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> q;					   // size 4, actual foot positions (x, y, z)
+	std::vector<Eigen::Vector3d> qd;				   // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> desired_footPosition; // size 4, each is desired foot position (x, y, z)
 	std::vector<Eigen::Vector3d> desired_footVelocity; // size 4, each is desired foot velocity (x, y, z)
 
-	std::vector<Eigen::Vector3d> footPositionWalk;	 // size 4, each is foot position (x, y, z)
+	std::vector<Eigen::Vector3d> footPositionWalk; // size 4, each is foot position (x, y, z)
+
+	Eigen::VectorXd qld; // desired joint velocities (12 DOF)
+	Eigen::VectorXd ql;	 // joint torques (12 DOF)
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
+
+	Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
+	Eigen::Matrix3d O3 = Eigen::Matrix3d::Zero();
 
 	double gravity = -9.81;
 	float control_time_step_ms;
@@ -768,7 +899,7 @@ private:
 	double stepLength = 0.3;
 	double stepHeight = 0.2;
 	double stepFrequency = 2.0;
-	double walkOffset[4] = {-stepLength/2, -stepLength/6, stepLength/6, stepLength/2};
+	double walkOffset[4] = {-stepLength / 2, -stepLength / 6, stepLength / 6, stepLength / 2};
 
 	// Eigen::Vector3d pcomb = {0.0, 0.0, 0.086};
 
@@ -777,14 +908,11 @@ private:
 	// 	0.0, 588124.01325, 0.0,
 	// 	0.0, 0.0, 769095.07872
 	// };
-	
 
 	std::array<Eigen::Matrix3d, 13> I;
 	std::array<Eigen::Vector3d, 13> pcom;
 	// Link masses
 	const std::array<double, 4> mass = {17.122, 1.952, 2.437, 0.247};
-
-	
 };
 
 int main(int argc, char **argv)

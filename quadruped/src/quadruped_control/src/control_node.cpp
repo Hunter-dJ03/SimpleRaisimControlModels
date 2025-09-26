@@ -223,7 +223,17 @@ private:
 			// }
 		}
 
-		qld = trajectoryGenerator(q, footPositionActual);
+		// Body velocity
+		Eigen::VectorXd qb(6);
+		qb.setZero(); // Assume body is stationary for now
+
+		qb[2] = -0.3; 
+
+		// Desired foot velocity
+		Eigen::VectorXd vl(24);
+		vl.setZero(); // Assume feet are stationary for now
+
+		qld = trajectoryGenerator(q, footPositionActual, qb, vl);
 		ql = ql + qld * (control_time_step_ms / 1000.0);
 
 		for (size_t leg = 0; leg < 4; ++leg)
@@ -458,7 +468,9 @@ private:
 	}
 
 	Eigen::VectorXd trajectoryGenerator(const std::vector<Eigen::Vector3d> &q,
-										const std::vector<Eigen::Vector3d> &pawPosition)
+										const std::vector<Eigen::Vector3d> &pawPosition,
+										const Eigen::VectorXd &qb,
+										const Eigen::VectorXd &vl)
 	{
 		// Get Full Jacobian matric
 		Eigen::MatrixXd J_full = computeFullJacobian(q, pawPosition);
@@ -466,18 +478,10 @@ private:
 		Eigen::MatrixXd Jb = J_full.leftCols(6);   // Body velocity part
 		Eigen::MatrixXd Jl = J_full.rightCols(12); // Leg velocity part
 
-		// Body velocity
-		Eigen::VectorXd qb(6);
-		qb.setZero(); // Assume body is stationary for now
-
-		// Desired foot velocity
-		Eigen::VectorXd vp(24);
-		vp.setZero(); // Assume feet are stationary for now
-
 		// Joint velocity
 		Eigen::VectorXd ql(12);
 
-		ql = Jl.completeOrthogonalDecomposition().pseudoInverse() * (vp - Jb * qb);
+		ql = Jl.completeOrthogonalDecomposition().pseudoInverse() * (vl - Jb * qb);
 
 		return ql;
 	}

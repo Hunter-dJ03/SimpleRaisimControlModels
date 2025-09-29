@@ -35,8 +35,12 @@ public:
 
 		qb = Eigen::VectorXd::Zero(6);
 		vl = Eigen::VectorXd::Zero(24);
+
 		qld = Eigen::VectorXd::Zero(12);
 		ql = Eigen::VectorXd::Zero(12);
+
+		qld_prev = Eigen::VectorXd::Zero(12);
+		ql_prev = Eigen::VectorXd::Zero(12);
 
 		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
@@ -70,7 +74,12 @@ public:
 			ql[leg * 3 + 0] = q[leg](0);
 			ql[leg * 3 + 1] = q[leg](1);
 			ql[leg * 3 + 2] = q[leg](2);
+			ql_prev[leg * 3 + 0] = q[leg](0);
+			ql_prev[leg * 3 + 1] = q[leg](1);
+			ql_prev[leg * 3 + 2] = q[leg](2);
 		}
+
+		// ql_prev = ql;
 
 		I[0] << 190521.10058e-6, 0.0, 0.0,
 			0.0, 588124.01325e-6, 0.0,
@@ -200,13 +209,25 @@ private:
 			footPositionActual[leg] = forwardKinematics(q[leg], leg);
 		}
 
-		// qb.setZero(); // Assume body is stationary for now
-		// qb[3] = -0.2;
-		// vl.setZero(); // Assume feet are stationary for now
-
-		// qld = trajectoryGenerator(q, footPositionActual, qb, vl);
 		qld = trajectoryGeneratorLinearOnly(q, footPositionActual, qb, vl);
-		ql = ql + qld * (control_time_step_ms / 1000.0);
+		// qld = trajectoryGenerator(q, footPositionActual, qb, vl);
+		
+		static bool first = true;
+		if (first)
+		{
+			qld_prev = qld;
+			ql_prev = ql;
+			std::cout << "ql:\n"
+					  << ql.transpose() << std::endl;
+			std::cout << "ql_prev:\n"
+					  << ql_prev.transpose() << std::endl;
+			first = false;
+		}
+
+		
+
+		ql = ql_prev + (control_time_step_ms / 1000.0) * 0.5 * (qld + qld_prev);
+		// ql += (control_time_step_ms / 1000.0) * 0.5 * (qld + qld_prev);
 
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
@@ -214,12 +235,11 @@ private:
 			const Eigen::Vector3d ql_leg = ql.segment<3>(3 * leg);
 			const Eigen::Vector3d qld_leg = qld.segment<3>(3 * leg);
 
-			// Keep your per-leg arrays updated (if you use them elsewhere)
+			// Keep per-leg arrays updated 
 			legJointPosition[leg] = ql_leg;
 			legJointVelocity[leg] = qld_leg;
 
-			// Optional dynamics (commented for now)
-			// Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
+			// Optional dynamics
 			Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
 			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0, leg);
 
@@ -230,12 +250,14 @@ private:
 				control_effort.position[idx] = ql_leg(joint);
 				control_effort.velocity[idx] = qld_leg(joint);
 				control_effort.effort[idx] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
-				// control_effort.effort[idx] = 0.0; // simple for now
 			}
 		}
 
 		// Publish the control effort for the desired joint states
 		desired_control_pub_->publish(control_effort);
+
+		ql_prev = ql;
+		qld_prev = qld;
 
 		// Fill in desired position
 		endpoint_msg.desired.x = footPosition[0].x();
@@ -466,11 +488,9 @@ private:
 		Eigen::MatrixXd Jl = J_full.rightCols(12); // Leg velocity part
 
 		// Joint velocity
-		Eigen::VectorXd ql(12);
+		Eigen::VectorXd qld_calc = Jl.completeOrthogonalDecomposition().pseudoInverse() * (vl - Jb * qb);
 
-		ql = Jl.completeOrthogonalDecomposition().pseudoInverse() * (vl - Jb * qb);
-
-		return ql;
+		return qld_calc;
 	}
 
 	Eigen::VectorXd trajectoryGeneratorLinearOnly(
@@ -489,7 +509,8 @@ private:
 		// Compact linear-only Jacobians: 12 rows total
 		Eigen::MatrixXd Jb_v(12, 6);
 		Eigen::MatrixXd Jl_v(12, 12);
-	    Jl_v.setZero();
+		Jb_v.setZero();
+		Jl_v.setZero();
 
 		for (int leg = 0; leg < 4; ++leg)
 		{
@@ -501,7 +522,6 @@ private:
 			Jb_v.block<3, 6>(rv, 0) = Jb.block<3, 6>(r, 0);
 			Jl_v.block<3, 3>(rv, c) = Jl.block<3, 3>(r, c);
 		}
-		
 
 		// Extract only linear desired velocities (first 3 per leg)
 		Eigen::VectorXd vl_v(12);
@@ -511,10 +531,9 @@ private:
 		}
 
 		// Solve least squares
-		Eigen::VectorXd ql = Jl_v.completeOrthogonalDecomposition()
-								 .solve(vl_v - Jb_v * qb);
+		Eigen::VectorXd qld_calc = Jl_v.completeOrthogonalDecomposition().pseudoInverse() * (vl_v - Jb_v * qb);
 
-		return ql; // 12x1 joint velocities
+		return qld_calc; // 12x1 joint velocities
 	}
 
 	/*
@@ -932,10 +951,12 @@ private:
 
 	std::vector<Eigen::Vector3d> footPositionWalk; // size 4, each is foot position (x, y, z)
 
-	Eigen::VectorXd qb;	 // Body velocity (XYZRPY)
-	Eigen::VectorXd vl;	 // Desired foot velocity
-	Eigen::VectorXd qld; // desired joint velocities (12 DOF)
-	Eigen::VectorXd ql;	 // joint torques (12 DOF)
+	Eigen::VectorXd qb;		  // Body velocity (XYZRPY)
+	Eigen::VectorXd vl;		  // Desired foot velocity
+	Eigen::VectorXd qld;	  // desired joint velocities (12 DOF)
+	Eigen::VectorXd ql;		  // joint torques (12 DOF)
+	Eigen::VectorXd qld_prev; // desired joint velocities (12 DOF)
+	Eigen::VectorXd ql_prev;  // joint torques (12 DOF)
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
 

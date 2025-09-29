@@ -178,18 +178,9 @@ private:
 		qb.setZero();
 		vl.setZero();
 
-		qb[0] = forwardStepLength / (stepDuration) * 1000;
+		// qb[0] = forwardStepLength / (stepDuration) * 1000;
 
-		// qb[2] = A1 * cos(omega1 * (now_ros.seconds() - 2));
-
-		// qb[0] = 0.0;
-		// qb[1] = 0.0;
-		// qb[2] = 0.0;
-		// qb[3] = 0.0;
-		// qb[4] = 0.0;
-		// qb[5] = 0.0;
-
-		// RCLCPP_INFO(this->get_logger(), "Step Timers: %f, %f, %f, %f", stepTimer[0], stepTimer[1], stepTimer[2], stepTimer[3]);
+		qb[0] = A1 * cos(omega1 * (now_ros.seconds() - 2));
 
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
 		for (size_t leg = 0; leg < 4; ++leg)
@@ -197,15 +188,15 @@ private:
 			if (stepTimer[leg] >= stepDuration)
 			{
 				stepTimer[leg] = 0;
-				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %ld", leg);
+				// RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %ld", leg);
 			}
 
 			if (stepTimer[leg] < stepDuration / 4) // Swing phase
 			{
 
-				vl[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				vl[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				vl[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
+				// vl[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
+				// vl[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
+				// vl[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
 			}
 
 			// Wait for 1 second before walking
@@ -223,12 +214,12 @@ private:
 
 		for (size_t i = 0; i < 6; ++i)
 		{
-			command_msg.qb[i] = qb[i]; // Convert to m/s from m/ms
+			command_msg.qb[i] = qb[i];
 		}
 
 		for (size_t i = 0; i < 24; ++i)
 		{
-			command_msg.vl[i] = vl[i] * 1000; // Convert to rad/s from rad/ms
+			command_msg.vl[i] = vl[i] * 1000; // Convert to m/s from m/ms
 		}
 
 		full_body_command->publish(command_msg);
@@ -451,7 +442,7 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double forwardStepLength = 0.3; // 0.375
+	double forwardStepLength = 0.0; // 0.375
 	double sideStepLength = 0.0;	// 0.2
 	double stepHeight = 0.1;
 	double stepDuration = 1000.0;

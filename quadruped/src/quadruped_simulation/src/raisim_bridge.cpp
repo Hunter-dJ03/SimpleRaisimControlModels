@@ -6,9 +6,13 @@
 #include <raisim/World.hpp>
 #include <raisim/RaisimServer.hpp>
 
+#include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+
 #include <chrono>
 #include <thread>
 #include <Eigen/Dense>
+#include <mutex>
+#include <atomic>
 
 class RaisimBridge : public rclcpp::Node
 {
@@ -72,7 +76,6 @@ public:
 		auto ground = world.addGround(0);
 		ground->setAppearance("hidden");
 
-
 		// Variable Gravity option
 		// world.setGravity(Eigen::Vector3d(0, 0, 0));
 
@@ -134,8 +137,6 @@ public:
 		// Setup raisim server
 		server.launchServer(8080);
 
-		
-
 		// Wait for server connection
 		RCLCPP_INFO(this->get_logger(), "Awaiting Connection to raisim server");
 		while (!server.isConnected())
@@ -164,6 +165,10 @@ public:
 		timer_ = this->create_wall_timer(
 			std::chrono::duration<double>(dt_),
 			std::bind(&RaisimBridge::update, this));
+
+		// set_gc_srv_ = this->create_service<quadruped_interfaces::srv::SetGeneralizedCoordinate>(
+		// 	"set_generalized_coordinate",
+		// 	std::bind(&RaisimBridge::setGcCallback, this, std::placeholders::_1, std::placeholders::_2));
 
 		// Set start time checking dimulation time displacement
 		startTime = std::chrono::high_resolution_clock::now();
@@ -321,6 +326,45 @@ private:
 		return;
 	}
 
+	// void setGcCallback(
+	// 	const std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Request> req,
+	// 	std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Response> res)
+	// {
+	// 	const int expected_dim = robot->getGeneralizedCoordinateDim(); // 19 floating, 12 fixed
+	// 	const size_t n_in = req->q.size();
+
+	// 	if (static_cast<int>(n_in) != expected_dim)
+	// 	{
+	// 		res->ok = false;
+	// 		res->message = "Wrong q length. Got " + std::to_string(n_in) +
+	// 					   ", expected " + std::to_string(expected_dim) +
+	// 					   (fixed_robot_body ? " for fixed base" : " for floating base");
+	// 		RCLCPP_WARN(this->get_logger(), "%s", res->message.c_str());
+	// 		return;
+	// 	}
+
+	// 	Eigen::VectorXd target(expected_dim);
+	// 	for (int i = 0; i < expected_dim; ++i)
+	// 		target[i] = req->q[i];
+
+	// 	// No rearrange or normalization. The array is already in Raisim order.
+
+	// 	robot->setGeneralizedCoordinate(target);
+	// 	robot->setGeneralizedVelocity(Eigen::VectorXd::Zero(robot->getDOF()));
+
+
+	// 	// {
+	// 	// 	std::lock_guard<std::mutex> lock(pending_mutex_);
+	// 	// 	pending_gc_ = target;
+	// 	// 	has_pending_gc_.store(true, std::memory_order_release);
+	// 	// }
+
+	// 	res->ok = true;
+	// 	res->message = "Queued generalized coordinate set.";
+	// 	RCLCPP_INFO(this->get_logger(), "Queued GC of size %d in mode: %s",
+	// 				expected_dim, fixed_robot_body ? "fixed" : "floating");
+	// }
+
 	// Raisim control variables
 	bool shutdown_called_ = false;
 	raisim::World world;
@@ -334,6 +378,7 @@ private:
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr desired_cmd_sub_;
 	rclcpp::TimerBase::SharedPtr timer_;
+	// rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
 
 	// Declare internal timer variables
 	std::chrono::_V2::system_clock::time_point startTime;

@@ -27,9 +27,10 @@ include_directories(
 )
 find_package(raisim REQUIRED)
 
+find_package(quadruped_interfaces REQUIRED)                        
 
 add_executable(raisim_bridge src/raisim_bridge.cpp)
-ament_target_dependencies(raisim_bridge rclcpp sensor_msgs std_msgs Eigen3 raisim PythonLibs)
+ament_target_dependencies(raisim_bridge rclcpp sensor_msgs std_msgs Eigen3 raisim PythonLibs quadruped_interfaces)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

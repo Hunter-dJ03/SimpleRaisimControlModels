@@ -3,6 +3,9 @@
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include "quadruped_interfaces/msg/foot_states.hpp"
 #include "quadruped_interfaces/msg/full_body_control_command.hpp"
+#include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+#include <rclcpp/executors/single_threaded_executor.hpp>
+
 
 #include <Eigen/Dense>
 #include <Eigen/QR>
@@ -63,7 +66,6 @@ public:
 			// std::cout << "Vector Init: " << footPositionInit[leg].transpose() << "        Vector Walk: " << footPositionWalk[leg].transpose() << std::endl;
 
 			q[leg] = legJointPosition[leg];
-
 		}
 
 		// Set up subscription to encoder feedback for joint states
@@ -75,6 +77,56 @@ public:
 		foot_state_publisher_ = this->create_publisher<quadruped_interfaces::msg::FootStates>("foot_states", 10);
 
 		full_body_command = this->create_publisher<quadruped_interfaces::msg::FullBodyControlCommand>("full_body_control_command", 10);
+
+		// Create the service client
+		set_gc_client_ = this->create_client<quadruped_interfaces::srv::SetGeneralizedCoordinate>(
+			"/set_generalized_coordinate");
+
+		// Block until the service is ready
+		while (!set_gc_client_->wait_for_service(std::chrono::seconds(1)))
+		{
+			if (!rclcpp::ok())
+			{
+				RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for /set_generalized_coordinate");
+				throw std::runtime_error("Service wait interrupted");
+			}
+			RCLCPP_INFO(this->get_logger(), "Waiting for /set_generalized_coordinate...");
+		}
+
+		// Build the 12 joint targets from the IK results you already computed in q[0..3]
+		// If you want to drive it from footPositionWalk explicitly, you can also do
+		// q[leg] = inverseKinematics(footPositionWalk[leg], leg);
+		auto req = std::make_shared<quadruped_interfaces::srv::SetGeneralizedCoordinate::Request>();
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			req->q[leg * 3 + 0] = q[leg][0];
+			req->q[leg * 3 + 1] = q[leg][1];
+			req->q[leg * 3 + 2] = q[leg][2];
+		}
+
+		// Send request and block until the response arrives
+		auto future = set_gc_client_->async_send_request(req);
+
+// Use a temporary executor; do NOT call shared_from_this() in a ctor.
+rclcpp::executors::SingleThreadedExecutor exec;
+exec.add_node(this->get_node_base_interface());
+auto ret = exec.spin_until_future_complete(future, std::chrono::seconds(5));
+
+
+		if (ret != rclcpp::FutureReturnCode::SUCCESS)
+		{
+			RCLCPP_ERROR(this->get_logger(), "Service call to /set_generalized_coordinate did not complete");
+			throw std::runtime_error("Initial joint teleport failed");
+		}
+
+		const auto res = future.get();
+		if (!res->ok)
+		{
+			RCLCPP_ERROR(this->get_logger(), "Service returned error: %s", res->message.c_str());
+			throw std::runtime_error("Initial joint teleport rejected by server");
+		}
+
+		RCLCPP_INFO(this->get_logger(), "Initial joint teleport applied: %s", res->message.c_str());
 
 		// Create timer to update the control commands
 		timer_ = rclcpp::create_timer(
@@ -126,9 +178,9 @@ private:
 		qb.setZero();
 		vl.setZero();
 
-		// qb[0] = forwardStepLength / (stepDuration) * 1000;
+		qb[0] = forwardStepLength / (stepDuration) * 1000;
 
-		qb[2] = A1 * cos(omega1 * (now_ros.seconds()-2));
+		// qb[2] = A1 * cos(omega1 * (now_ros.seconds() - 2));
 
 		// qb[0] = 0.0;
 		// qb[1] = 0.0;
@@ -136,7 +188,6 @@ private:
 		// qb[3] = 0.0;
 		// qb[4] = 0.0;
 		// qb[5] = 0.0;
-
 
 		// RCLCPP_INFO(this->get_logger(), "Step Timers: %f, %f, %f, %f", stepTimer[0], stepTimer[1], stepTimer[2], stepTimer[3]);
 
@@ -148,28 +199,27 @@ private:
 				stepTimer[leg] = 0;
 				RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %ld", leg);
 			}
-		
 
-			if (stepTimer[leg] < stepDuration/4) // Swing phase
+			if (stepTimer[leg] < stepDuration / 4) // Swing phase
 			{
 
-				// vl[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				// vl[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				// vl[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
+				vl[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
+				vl[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
+				vl[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
 			}
 
 			// Wait for 1 second before walking
 			if (now_ros.seconds() >= 2.0)
 			{
 				stepTimer[leg] += control_time_step_ms;
-			} 
+			}
 		}
 
 		if (now_ros.seconds() < 2.0)
-			{
-				qb.setZero();
-				vl.setZero();
-			} 
+		{
+			qb.setZero();
+			vl.setZero();
+		}
 
 		for (size_t i = 0; i < 6; ++i)
 		{
@@ -180,7 +230,6 @@ private:
 		{
 			command_msg.vl[i] = vl[i] * 1000; // Convert to rad/s from rad/ms
 		}
-
 
 		full_body_command->publish(command_msg);
 	}
@@ -360,6 +409,7 @@ private:
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::FootStates>::SharedPtr foot_state_publisher_;
 	rclcpp::Publisher<quadruped_interfaces::msg::FullBodyControlCommand>::SharedPtr full_body_command;
+	rclcpp::Client<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_client_;
 
 	rclcpp::TimerBase::SharedPtr timer_;
 
@@ -401,13 +451,13 @@ private:
 	double period2 = 3.0; // period in seconds
 	double omega2 = 2.0 * M_PI / period2;
 
-	double forwardStepLength = 0.3;  // 0.375
-	double sideStepLength = 0.0; // 0.2
-	double stepHeight = 0.15;
-	double stepDuration = 2000.0;
+	double forwardStepLength = 0.3; // 0.375
+	double sideStepLength = 0.0;	// 0.2
+	double stepHeight = 0.1;
+	double stepDuration = 1000.0;
 	double forwardWalkOffset[4] = {-forwardStepLength / 2.0, -forwardStepLength / 6.0, forwardStepLength / 2.0, forwardStepLength / 6.0};
 	double sideWalkOffset[4] = {-sideStepLength / 2.0, -sideStepLength / 6.0, sideStepLength / 2.0, sideStepLength / 6.0};
-	double stepTimer[4] = {stepDuration*(0.0/4.0), stepDuration*(3.0/4.0), stepDuration*(1.0/4.0), stepDuration*(2.0/4.0)};
+	double stepTimer[4] = {stepDuration * (0.0 / 4.0), stepDuration * (3.0 / 4.0), stepDuration * (1.0 / 4.0), stepDuration * (2.0 / 4.0)};
 
 	double T = stepDuration; // Convert ms to seconds for polynomial coeffs
 	std::vector<double> a = {-1.0 / 2.0, -1.0 / T, 0, 800.0 / pow(T, 3), -4800.0 / pow(T, 4), 7680.0 / pow(T, 5), 0};

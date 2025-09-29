@@ -3,6 +3,9 @@
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include "quadruped_interfaces/msg/foot_states.hpp"
 #include "quadruped_interfaces/msg/full_body_control_command.hpp"
+#include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+
+
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <array>
@@ -149,6 +152,10 @@ public:
 			this->get_clock(),
 			std::chrono::microseconds((int)(control_time_step_ms * 1000)),
 			std::bind(&QuadrupedLegController::controlCommands, this));
+
+		set_gc_srv_ = this->create_service<quadruped_interfaces::srv::SetGeneralizedCoordinate>(
+			"set_generalized_coordinate",
+			std::bind(&QuadrupedLegController::setGcCallback, this, std::placeholders::_1, std::placeholders::_2));
 
 		// Feedback for controller start
 		RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
@@ -869,6 +876,35 @@ private:
 		return tau;
 	}
 
+	void setGcCallback(
+		const std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Request> req,
+		std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Response> res)
+	{
+		// const int expected_dim = robot->getGeneralizedCoordinateDim(); // 19 floating, 12 fixed
+		// const size_t n_in = req->q.size();
+
+		// if (static_cast<int>(n_in) != expected_dim)
+		// {
+		// 	res->ok = false;
+		// 	res->message = "Wrong q length. Got " + std::to_string(n_in) +
+		// 				   ", expected " + std::to_string(expected_dim) +
+		// 				   (fixed_robot_body ? " for fixed base" : " for floating base");
+		// 	RCLCPP_WARN(this->get_logger(), "%s", res->message.c_str());
+		// 	return;
+		// }
+
+		Eigen::VectorXd target(12);
+		for (int i = 0; i < 12; ++i)
+			target[i] = req->q[i];
+
+		ql = target;
+
+		res->ok = true;
+		res->message = "Queued generalized coordinate set.";
+		// RCLCPP_INFO(this->get_logger(), "Queued GC of size %d in mode: %s",
+		// 			expected_dim, fixed_robot_body ? "fixed" : "floating");
+	}
+
 	// Declaration for ROS2 subscriptions and publishers
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 	rclcpp::Subscription<quadruped_interfaces::msg::FootStates>::SharedPtr foot_state_sub_;
@@ -877,6 +913,8 @@ private:
 
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
+
+	rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
 	rclcpp::TimerBase::SharedPtr timer_;
 
 	// Declaration for model parameters and variables

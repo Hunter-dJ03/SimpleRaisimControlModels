@@ -468,10 +468,6 @@ private:
 	double sideWalkOffset[4] = {-sideStepLength / 2.0, -sideStepLength / 6.0, sideStepLength / 2.0, sideStepLength / 6.0};
 	double stepTimer[4] = {stepDuration * (0.0 / 4.0), stepDuration * (3.0 / 4.0), stepDuration * (1.0 / 4.0), stepDuration * (2.0 / 4.0)};
 
-	double T = stepDuration; // Convert ms to seconds for polynomial coeffs
-	std::vector<double> a = {-1.0 / 2.0, -1.0 / T, 0, 800.0 / pow(T, 3), -4800.0 / pow(T, 4), 7680.0 / pow(T, 5), 0};
-	std::vector<double> b = {0, 0, 0, 4096.0 / pow(T, 3), -49152.0 / pow(T, 4), 196608.0 / pow(T, 5), -262144.0 / pow(T, 6)};
-
 	bool once = true;
 };
 

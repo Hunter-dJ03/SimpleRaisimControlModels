@@ -9,6 +9,7 @@
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <array>
+#include <algorithm>
 #include <cmath>
 
 class QuadrupedGaitController : public rclcpp::Node
@@ -50,9 +51,7 @@ public:
 				leg);
 
 			footPosition[leg] = footPositionActual[leg];
-
 			footPositionInit[leg] = footPositionActual[leg];
-
 			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + forwardWalkOffset[leg] * 0.0, footPositionActual[leg][1] + sideWalkOffset[leg], footPositionActual[leg][2]), leg);
 
 			footPositionActual[leg] = forwardKinematics(
@@ -200,9 +199,16 @@ private:
 			if (stepTimer[leg] < stepDuration / 4) // Swing phase
 			{
 				leg_constraint[leg] = 0.0;
-				dqp_ref[leg * 6 + 0] = forwardStepLength * (6 * a[6] * pow(stepTimer[leg], 5) + 5 * a[5] * pow(stepTimer[leg], 4) + 4 * a[4] * pow(stepTimer[leg], 3) + 3 * a[3] * pow(stepTimer[leg], 2) + 2 * a[2] * stepTimer[leg] + a[1]) ;
-				dqp_ref[leg * 6 + 1] = sideStepLength * (6 * a[6] * pow(stepTimer[leg], 5) + 5 * a[5] * pow(stepTimer[leg], 4) + 4 * a[4] * pow(stepTimer[leg], 3) + 3 * a[3] * pow(stepTimer[leg], 2) + 2 * a[2] * stepTimer[leg] + a[1]);
-				dqp_ref[leg * 6 + 2] = stepHeight * (6 * b[6] * pow(stepTimer[leg], 5) + 5 * b[5] * pow(stepTimer[leg], 4) + 4 * b[4] * pow(stepTimer[leg], 3) + 3 * b[3] * pow(stepTimer[leg], 2) + 2 * b[2] * stepTimer[leg] + b[1]);
+				const double swing_duration = stepDuration / 4.0;
+				double swing_phase = stepTimer[leg] / swing_duration;
+				swing_phase = std::clamp(swing_phase, 0.0, 1.0);
+
+				const double smooth_step_prime = 6.0 * swing_phase * (1.0 - swing_phase);
+				const double dz_dt = (stepHeight * M_PI * std::sin(2.0 * M_PI * swing_phase)) / swing_duration;
+
+				dqp_ref[leg * 6 + 0] = (forwardStepLength * smooth_step_prime) / swing_duration;
+				dqp_ref[leg * 6 + 1] = (sideStepLength * smooth_step_prime) / swing_duration;
+				dqp_ref[leg * 6 + 2] = dz_dt;
 			}
 
 			// Wait for 1 second before walking

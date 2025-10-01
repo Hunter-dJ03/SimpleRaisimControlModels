@@ -7,8 +7,20 @@
 
 #include <Eigen/Dense>
 #include <Eigen/QR>
+#include <Eigen/Geometry>
 #include <array>
 #include <cmath>
+
+struct LegKinematics
+{
+	Eigen::Vector3d r1;
+	Eigen::Vector3d r2;
+	Eigen::Vector3d r3;
+	Eigen::Vector3d rp;
+	Eigen::Vector3d z1;
+	Eigen::Vector3d z2;
+	Eigen::Vector3d z3;
+};
 
 class QuadrupedLegController : public rclcpp::Node
 {
@@ -48,6 +60,7 @@ public:
 		qJ_ref = qJ;
 		qJ_prev = qJ;
 		qJ_ref_prev = qJ; // Set reference and previous values to initial positions
+		trajectory_q_des_ = qJ;
 
 		qp = fullForwardKinematics();
 		qp_ref = qp;
@@ -310,54 +323,9 @@ private:
 	Eigen::MatrixXd computeJacobian(const Eigen::Vector3d &q,
 									const int leg)
 	{
-		// Unpack joint angles from the input vector
-		double theta1 = q(0);
-		double theta2 = q(1);
-		double theta3 = q(2);
-
-		// Link lengths
-		double l1 = link_lengths[0];
-		double l2 = link_lengths[1];
-		double l3 = link_lengths[2];
-
-		// Adjust link length based on leg index (for left legs)
-		if (leg == 0 || leg == 1)
-		{
-			l1 *= -1;
-		}
-
-		Eigen::VectorXd J1(6);
-		J1 << 0,
-			l1 * std::sin(theta1) - l2 * std::cos(theta1) * std::sin(theta2) + l3 * std::cos(theta1) * std::cos(theta2) * std::cos(theta3) - l3 * std::cos(theta1) * std::sin(theta2) * std::sin(theta3),
-			l3 * std::cos(theta2) * std::cos(theta3) * std::sin(theta1) - l2 * std::sin(theta1) * std::sin(theta2) - l1 * std::cos(theta1) - l3 * std::sin(theta1) * std::sin(theta2) * std::sin(theta3),
-			1,
-			0,
-			0; // Rotation axis for joint 1
-
-		Eigen::VectorXd J2(6);
-		J2 << l2 * std::sin(theta2) - l3 * std::cos(theta2 + theta3),
-			-std::sin(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
-			std::cos(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
-			0,
-			std::cos(theta1),
-			std::sin(theta1); // Rotation axis for joint 2
-
-		Eigen::VectorXd J3(6);
-		J3 << -l3 * std::cos(theta2 + theta3),
-			-l3 * std::sin(theta2 + theta3) * std::sin(theta1),
-			l3 * std::sin(theta2 + theta3) * std::cos(theta1),
-			0,
-			std::cos(theta1),
-			std::sin(theta1); // Rotation axis for joint 3
-
-		// Compute the Jacobian matrix for the 3-DOF leg (Currently ignored roll, pitch, and yaw)
-		Eigen::MatrixXd J(6, 3);
-
-		J.col(0) = J1;
-		J.col(1) = J2;
-		J.col(2) = J3;
-
-		return J;
+		const auto kin = computeLegForwardKinematics(q, leg);
+		const Eigen::Matrix<double, 6, 3> J_leg = legJacobianFromKinematics(kin);
+		return J_leg;
 	}
 
 	/*
@@ -370,40 +338,23 @@ private:
 	 */
 	Eigen::MatrixXd computeFullJacobian()
 	{
-
-		std::vector<Eigen::MatrixXd> J_legs(4); // 4 sets of 6x3
-		std::vector<Eigen::MatrixXd> J_body(4); // 4 sets of 6x6
+		Eigen::MatrixXd J_full = Eigen::MatrixXd::Zero(24, 18);
 
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
-			J_legs[leg] = computeJacobian(qJ.segment<3>(3 * leg), leg);
+			const int row = static_cast<int>(6 * leg);
+			const int col = static_cast<int>(6 + 3 * leg);
+			const auto kin = computeLegForwardKinematics(qJ.segment<3>(3 * leg), static_cast<int>(leg));
 
-			J_body[leg] = Eigen::MatrixXd::Zero(6, 6);
-			J_body[leg].block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-			J_body[leg].block<3, 3>(3, 3) = Eigen::Matrix3d::Identity();
+			leg_kinematics_[leg] = kin;
 
-			Eigen::Vector3d pawPosition = qp.segment<3>(3 * leg);
+			J_full.block<3, 3>(row, 0) = Eigen::Matrix3d::Identity();
+			J_full.block<3, 3>(row, 3) = -skew(kin.rp);
+			J_full.block<3, 3>(row + 3, 3) = Eigen::Matrix3d::Identity();
 
-			Eigen::Matrix3d S;
-			S << 0.0, -pawPosition.z(), pawPosition.y(),
-				pawPosition.z(), 0.0, -pawPosition.x(),
-				-pawPosition.y(), pawPosition.x(), 0.0;
-
-			J_body[leg].block<3, 3>(0, 3) = -S; // Skew-symmetric matrix for cross product
+			const Eigen::Matrix<double, 6, 3> J_leg = legJacobianFromKinematics(kin);
+			J_full.block<6, 3>(row, col) = J_leg;
 		}
-
-		Eigen::MatrixXd J_full(24, 18);
-		J_full.setZero();
-
-		J_full.block<6, 6>(0, 0) = J_body[0];
-		J_full.block<6, 6>(6, 0) = J_body[1];
-		J_full.block<6, 6>(12, 0) = J_body[2];
-		J_full.block<6, 6>(18, 0) = J_body[3];
-
-		J_full.block<6, 3>(0, 6) = J_legs[0];
-		J_full.block<6, 3>(6, 9) = J_legs[1];
-		J_full.block<6, 3>(12, 12) = J_legs[2];
-		J_full.block<6, 3>(18, 15) = J_legs[3];
 
 		return J_full;
 	}
@@ -412,21 +363,49 @@ private:
 		const Eigen::VectorXd &dqb_ref,
 		const Eigen::VectorXd &dqp_ref)
 	{
-		// Get Full Jacobian matric
-		Eigen::MatrixXd J_full = computeFullJacobian();
+		(void)dqb_ref;
+		(void)dqp_ref;
 
-		Eigen::MatrixXd Jb = J_full.leftCols(6);   // Body velocity part
-		Eigen::MatrixXd Jl = J_full.rightCols(12); // Leg velocity part
+		const double time = this->get_clock()->now().seconds();
+		const double dt = control_time_step_ms / 1000.0;
 
-		// Joint velocity
-		Eigen::VectorXd qld_calc = Jl.completeOrthogonalDecomposition().pseudoInverse() * (dqp_ref - Jb * dqb_ref);
-		// double lambda = 1e-5;
-		// Eigen::MatrixXd I = Eigen::MatrixXd::Identity(Jl.cols(), Jl.cols());
-		// Eigen::VectorXd qld_calc = (Jl.transpose() * Jl + lambda * lambda * I)
-		// 			   .ldlt()
-		// 			   .solve(Jl.transpose() * (dqp_ref - Jb * dqb_ref));
+		if (!trajectory_initialized_ || trajectory_q_des_.size() != dof || time <= 1e-12)
+		{
+			trajectory_q_des_ = qJ;
+			trajectory_initialized_ = true;
+		}
 
-		return qld_calc;
+		std::array<LegKinematics, 4> legs{};
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			legs[leg] = computeLegForwardKinematics(qJ.segment<3>(3 * leg), static_cast<int>(leg));
+		}
+
+		const Eigen::Matrix<double, 12, 18> Jp = feetPositionJacobian(legs);
+		const Eigen::Matrix<double, 12, 6> Jb = Jp.block<12, 6>(0, 0);
+		const Eigen::Matrix<double, 12, 12> Jq = Jp.block<12, 12>(0, 6);
+
+		const double f = 0.25;
+		const double amp = 0.1;
+		Eigen::Vector3d vB_des(0.0, amp * std::sin(2.0 * M_PI * f * time), 0.0);
+		Eigen::Vector3d wB_des = Eigen::Vector3d::Zero();
+		Eigen::Matrix<double, 6, 1> dqb;
+		dqb << vB_des, wB_des;
+
+		const Eigen::Matrix<double, 12, 1> rhs = Jb * dqb;
+		const double lambda = 1e-3;
+		const Eigen::Matrix<double, 12, 12> I = Eigen::Matrix<double, 12, 12>::Identity();
+		const Eigen::Matrix<double, 12, 1> dq_des = -(Jq.transpose() * Jq + lambda * lambda * I).ldlt().solve(Jq.transpose() * rhs);
+
+		if (trajectory_q_des_.size() != dof)
+		{
+			trajectory_q_des_ = qJ;
+		}
+
+		trajectory_q_des_.noalias() += dq_des * dt;
+		leg_kinematics_ = legs;
+
+		return dq_des;
 	}
 
 	Eigen::VectorXd trajectoryGeneratorLinearOnly() // 24x1 desired [v; w] per foot
@@ -476,78 +455,157 @@ private:
 		return qld_calc; // 12x1 joint velocities
 	}
 
-	/*
-	 * Computes the position of foot position for a 3-DOF leg based on the joint angles.
-	 * Contains the full 4x4 transformation matrix however only using position atm
-	 *
-	 * @param q The joint angles of the leg (3 DOF).
-	 * @param leg The index of the leg (0-3).
-	 *
-	 * @return The position of the foot in world coordinates (3D vector).
-	 */
+	static Eigen::Matrix3d skew(const Eigen::Vector3d &a)
+	{
+		Eigen::Matrix3d A;
+		A << 0.0, -a.z(), a.y(),
+			 a.z(), 0.0, -a.x(),
+			-a.y(), a.x(), 0.0;
+		return A;
+	}
+
+	Eigen::Vector3d legBasePosition(int leg) const
+	{
+		switch (leg)
+		{
+		case 0:
+			return Eigen::Vector3d(0.28375, 0.1540, 0.025);
+		case 1:
+			return Eigen::Vector3d(-0.28375, 0.1540, 0.025);
+		case 2:
+			return Eigen::Vector3d(-0.28375, -0.1540, 0.025);
+		case 3:
+			return Eigen::Vector3d(0.28375, -0.1540, 0.025);
+		default:
+			return Eigen::Vector3d::Zero();
+		}
+	}
+
+	double hipOffsetSign(int leg) const
+	{
+		return (leg < 2) ? 1.0 : -1.0;
+	}
+
+	LegKinematics computeLegForwardKinematics(const Eigen::Vector3d &q_leg, int leg) const
+	{
+		const double d1 = 0.1345;
+		const double d2 = 0.37034477;
+		const double d3 = 0.36328592;
+
+		const Eigen::Vector3d r_bl = legBasePosition(leg);
+		const double d1_sgn = hipOffsetSign(leg);
+
+		Eigen::Matrix4d TB0;
+		TB0 <<
+			0, 0, 1, r_bl.x(),
+			0, -1, 0, r_bl.y(),
+			1, 0, 0, r_bl.z(),
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T01;
+		const double th1 = q_leg(0);
+		const double c1 = std::cos(th1);
+		const double s1 = std::sin(th1);
+		T01 <<
+			c1, -s1, 0, 0,
+			s1, c1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T12;
+		const double th2 = q_leg(1) - M_PI / 2.0;
+		const double c2 = std::cos(th2);
+		const double s2 = std::sin(th2);
+		T12 <<
+			c2, -s2, 0, 0,
+			0, 0, -1, -d1 * d1_sgn,
+			s2, c2, 0, 0,
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T23;
+		const double th3 = q_leg(2);
+		const double c3 = std::cos(th3);
+		const double s3 = std::sin(th3);
+		T23 <<
+			c3, -s3, 0, d2,
+			s3, c3, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T3P;
+		T3P <<
+			1, 0, 0, 0,
+			0, 1, 0, -d3,
+			0, 0, 1, 0,
+			0, 0, 0, 1;
+
+		const Eigen::Matrix4d TB1 = TB0 * T01;
+		const Eigen::Matrix4d TB2 = TB1 * T12;
+		const Eigen::Matrix4d TB3 = TB2 * T23;
+		const Eigen::Matrix4d TBP = TB3 * T3P;
+
+		LegKinematics kin;
+		kin.r1 = TB1.block<3, 1>(0, 3);
+		kin.r2 = TB2.block<3, 1>(0, 3);
+		kin.r3 = TB3.block<3, 1>(0, 3);
+		kin.rp = TBP.block<3, 1>(0, 3);
+
+		kin.z1 = TB1.block<3, 3>(0, 0).col(2);
+		kin.z2 = TB2.block<3, 3>(0, 0).col(2);
+		kin.z3 = TB3.block<3, 3>(0, 0).col(2);
+
+		return kin;
+	}
+
+	Eigen::Matrix<double, 6, 3> legJacobianFromKinematics(const LegKinematics &kin) const
+	{
+		Eigen::Matrix<double, 6, 3> J;
+		J.block<3, 1>(0, 0) = kin.z1.cross(kin.rp - kin.r1);
+		J.block<3, 1>(0, 1) = kin.z2.cross(kin.rp - kin.r2);
+		J.block<3, 1>(0, 2) = kin.z3.cross(kin.rp - kin.r3);
+		J.block<3, 1>(3, 0) = kin.z1;
+		J.block<3, 1>(3, 1) = kin.z2;
+		J.block<3, 1>(3, 2) = kin.z3;
+		return J;
+	}
+
+	Eigen::Matrix<double, 12, 18> feetPositionJacobian(const std::array<LegKinematics, 4> &legs) const
+	{
+		Eigen::Matrix<double, 12, 18> Jp;
+		Jp.setZero();
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			const int row = static_cast<int>(3 * leg);
+			const int col = static_cast<int>(6 + 3 * leg);
+
+			Jp.block<3, 3>(row, 0) = Eigen::Matrix3d::Identity();
+			Jp.block<3, 3>(row, 3) = -skew(legs[leg].rp);
+			Jp.block<3, 1>(row, col + 0) = legs[leg].z1.cross(legs[leg].rp - legs[leg].r1);
+			Jp.block<3, 1>(row, col + 1) = legs[leg].z2.cross(legs[leg].rp - legs[leg].r2);
+			Jp.block<3, 1>(row, col + 2) = legs[leg].z3.cross(legs[leg].rp - legs[leg].r3);
+		}
+
+		return Jp;
+	}
+
 	Eigen::VectorXd forwardKinematics(const Eigen::Vector3d &q,
 									  const int leg)
 	{
-		double theta1 = q(0);
-		double theta2 = q(1);
-		double theta3 = q(2);
-
-		// Precompute useful terms
-		// // Link lengths
-		double l1 = link_lengths[0];
-		double l2 = link_lengths[1];
-		double l3 = link_lengths[2];
-
-		if (leg == 0 || leg == 1)
-		{
-			l1 *= -1;
-		}
-
-		double x0 = 0.28375; // Base position in x
-		double y0 = 0.1540;	 // Base position in y
-		// double z0 = -38.5 - 25.0; // Base position in z
-		double z0 = 0.025; // Base position in z
-
-		if (leg == 2 || leg == 3)
-		{
-			y0 *= -1; // Adjust y position for right legs
-		}
-
-		if (leg == 1 || leg == 2)
-		{
-			x0 *= -1; // Adjust x position for rear legs
-		}
-
-		// Build the transformation matrix
-		Eigen::Matrix4d fk;
-		fk << -std::cos(theta2 + theta3),
-			std::sin(theta2 + theta3),
-			0,
-			x0 - l3 * std::sin(theta2 + theta3) - l2 * std::cos(theta2),
-			-std::sin(theta2 + theta3) * std::sin(theta1),
-			-std::cos(theta2 + theta3) * std::sin(theta1),
-			std::cos(theta1),
-			y0 - l1 * std::cos(theta1) - l2 * std::sin(theta1) * std::sin(theta2) + l3 * std::cos(theta2) * std::cos(theta3) * std::sin(theta1) - l3 * std::sin(theta1) * std::sin(theta2) * std::sin(theta3),
-			std::sin(theta2 + theta3) * std::cos(theta1),
-			std::cos(theta2 + theta3) * std::cos(theta1),
-			std::sin(theta1),
-			z0 - l1 * std::sin(theta1) + l2 * std::cos(theta1) * std::sin(theta2) - l3 * std::cos(theta1) * std::cos(theta2) * std::cos(theta3) + l3 * std::cos(theta1) * std::sin(theta2) * std::sin(theta3),
-			0,
-			0,
-			0,
-			1;
-
-		// Extract and return the position (4th column, top 3 rows)
-		return fk.block<3, 1>(0, 3); // XYZ position
+		const auto kin = computeLegForwardKinematics(q, leg);
+		Eigen::VectorXd position(3);
+		position = kin.rp;
+		return position;
 	}
 
 	Eigen::VectorXd fullForwardKinematics()
 	{
-		Eigen::VectorXd pawPosition(12); // 4 legs x 3D position
+		Eigen::VectorXd pawPosition(12);
 
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
-			pawPosition.segment<3>(3 * leg) = forwardKinematics(qJ.segment<3>(3 * leg), leg);
+			leg_kinematics_[leg] = computeLegForwardKinematics(qJ.segment<3>(3 * leg), static_cast<int>(leg));
+			pawPosition.segment<3>(3 * leg) = leg_kinematics_[leg].rp;
 		}
 
 		return pawPosition;
@@ -804,6 +862,8 @@ private:
 	Eigen::VectorXd dqJ_ref_prev; // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
 	Eigen::VectorXd qT_ref; // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd trajectory_q_des_;
+	bool trajectory_initialized_ = false;
 
 	std::vector<bool> leg_constraint;	 // Inclusion of leg in constraint matrix (1 = included, 0 = not)
 
@@ -850,6 +910,7 @@ private:
 	// 	0.0, 0.0, 769095.07872
 	// };
 
+	std::array<LegKinematics, 4> leg_kinematics_{};
 	std::array<Eigen::Matrix3d, 13> I;
 	std::array<Eigen::Vector3d, 13> pcom;
 	// Link masses

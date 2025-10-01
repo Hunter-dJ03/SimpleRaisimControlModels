@@ -6,7 +6,6 @@
 #include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
 
-
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <array>
@@ -34,6 +33,7 @@ public:
 
 		dqb_ref = Eigen::VectorXd::Zero(6);
 		dqp_ref = Eigen::VectorXd::Zero(24);
+		leg_constraint = Eigen::VectorXd::Zero(4);
 
 		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
@@ -53,7 +53,7 @@ public:
 
 			footPositionInit[leg] = footPositionActual[leg];
 
-			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + forwardWalkOffset[leg] *0.0, footPositionActual[leg][1] + sideWalkOffset[leg], footPositionActual[leg][2]), leg);
+			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + forwardWalkOffset[leg] * 0.0, footPositionActual[leg][1] + sideWalkOffset[leg], footPositionActual[leg][2]), leg);
 
 			footPositionActual[leg] = forwardKinematics(
 				legJointPosition[leg],
@@ -107,11 +107,10 @@ public:
 		// Send request and block until the response arrives
 		auto future = set_gc_client_->async_send_request(req);
 
-// Use a temporary executor; do NOT call shared_from_this() in a ctor.
-rclcpp::executors::SingleThreadedExecutor exec;
-exec.add_node(this->get_node_base_interface());
-auto ret = exec.spin_until_future_complete(future, std::chrono::seconds(5));
-
+		// Use a temporary executor; do NOT call shared_from_this() in a ctor.
+		rclcpp::executors::SingleThreadedExecutor exec;
+		exec.add_node(this->get_node_base_interface());
+		auto ret = exec.spin_until_future_complete(future, std::chrono::seconds(5));
 
 		if (ret != rclcpp::FutureReturnCode::SUCCESS)
 		{
@@ -174,9 +173,11 @@ private:
 		command_msg.header.stamp = stamp;
 		command_msg.dqb_ref.resize(6);
 		command_msg.dqp_ref.resize(24);
+		command_msg.leg_constraint.resize(4);
 
 		dqb_ref.setZero();
 		dqp_ref.setZero();
+		leg_constraint.setConstant(1.0);
 
 		dqb_ref[0] = forwardStepLength / (stepDuration) * 1000.0;
 
@@ -185,6 +186,11 @@ private:
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
+			if (now_ros.seconds() < 2.0) {
+				continue;
+			}
+
+
 			if (stepTimer[leg] >= stepDuration)
 			{
 				stepTimer[leg] = 0;
@@ -193,17 +199,17 @@ private:
 
 			if (stepTimer[leg] < stepDuration / 4) // Swing phase
 			{
-
-				dqp_ref[leg * 6 + 0] = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				dqp_ref[leg * 6 + 1] = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				dqp_ref[leg * 6 + 2] = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
+				leg_constraint[leg] = 0.0;
+				dqp_ref[leg * 6 + 0] = forwardStepLength * (6 * a[6] * pow(stepTimer[leg], 5) + 5 * a[5] * pow(stepTimer[leg], 4) + 4 * a[4] * pow(stepTimer[leg], 3) + 3 * a[3] * pow(stepTimer[leg], 2) + 2 * a[2] * stepTimer[leg] + a[1]) ;
+				dqp_ref[leg * 6 + 1] = sideStepLength * (6 * a[6] * pow(stepTimer[leg], 5) + 5 * a[5] * pow(stepTimer[leg], 4) + 4 * a[4] * pow(stepTimer[leg], 3) + 3 * a[3] * pow(stepTimer[leg], 2) + 2 * a[2] * stepTimer[leg] + a[1]);
+				dqp_ref[leg * 6 + 2] = stepHeight * (6 * b[6] * pow(stepTimer[leg], 5) + 5 * b[5] * pow(stepTimer[leg], 4) + 4 * b[4] * pow(stepTimer[leg], 3) + 3 * b[3] * pow(stepTimer[leg], 2) + 2 * b[2] * stepTimer[leg] + b[1]);
 			}
 
 			// Wait for 1 second before walking
-			if (now_ros.seconds() >= 2.0)
-			{
-				stepTimer[leg] += control_time_step_ms;
-			}
+			// if (now_ros.seconds() >= 2.0)
+			// {
+			stepTimer[leg] += control_time_step_ms;
+			// }
 		}
 
 		if (now_ros.seconds() < 2.0)
@@ -220,6 +226,11 @@ private:
 		for (size_t i = 0; i < 24; ++i)
 		{
 			command_msg.dqp_ref[i] = dqp_ref[i] * 1000; // Convert to m/s from m/ms
+		}
+
+		for (size_t i = 0; i < 4; ++i)
+		{
+			command_msg.leg_constraint[i] = leg_constraint[i]; // Convert to m/s from m/ms
 		}
 
 		full_body_command->publish(command_msg);
@@ -417,8 +428,9 @@ private:
 	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
 
-	Eigen::VectorXd dqb_ref; // Body velocity (XYZRPY)
-	Eigen::VectorXd dqp_ref; // Desired foot velocity
+	Eigen::VectorXd dqb_ref;		// Body velocity (XYZRPY)
+	Eigen::VectorXd dqp_ref;		// Desired foot velocity
+	Eigen::VectorXd leg_constraint; // Body velocity (XYZRPY)
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero(3);
 

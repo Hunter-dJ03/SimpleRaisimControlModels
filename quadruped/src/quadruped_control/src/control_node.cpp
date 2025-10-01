@@ -5,7 +5,6 @@
 #include "quadruped_interfaces/msg/full_body_control_command.hpp"
 #include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
 
-
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <array>
@@ -26,28 +25,32 @@ public:
 		// qb_ref = Eigen::VectorXd::Zero(6); // Reference body positions (XYZRPY)
 		dqb_ref = Eigen::VectorXd::Zero(6); // Reference body velocitys (XYZRPY)
 
-		qp = Eigen::VectorXd::Zero(12); // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
-		dqp = Eigen::VectorXd::Zero(12); // Measured Paw velocitys (dp1 XYZRPY, dp2 XYZRPY, ...)
-		qp_ref = Eigen::VectorXd::Zero(12); // Reference Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+		qp = Eigen::VectorXd::Zero(12);		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+		dqp = Eigen::VectorXd::Zero(12);	 // Measured Paw velocitys (dp1 XYZRPY, dp2 XYZRPY, ...)
+		qp_ref = Eigen::VectorXd::Zero(12);	 // Reference Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
 		dqp_ref = Eigen::VectorXd::Zero(24); // Reference Paw velocitys (dp1 XYZRPY, dp2 XYZRPY, ...)
 
-		qJ = Eigen::VectorXd::Zero(12); // Measured Joint positions (j1, j2, j3, j4, ...)
-		dqJ = Eigen::VectorXd::Zero(12); // Measured Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-		qJ_ref = Eigen::VectorXd::Zero(12); // Reference Joint positions (j1, j2, j3, j4, ...)
+		qJ = Eigen::VectorXd::Zero(12);		 // Measured Joint positions (j1, j2, j3, j4, ...)
+		dqJ = Eigen::VectorXd::Zero(12);	 // Measured Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		qJ_ref = Eigen::VectorXd::Zero(12);	 // Reference Joint positions (j1, j2, j3, j4, ...)
 		dqJ_ref = Eigen::VectorXd::Zero(12); // Reference Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
-		qJ_prev = Eigen::VectorXd::Zero(12); // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-		dqJ_prev = Eigen::VectorXd::Zero(12); // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-		qJ_ref_prev = Eigen::VectorXd::Zero(12); // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		qJ_prev = Eigen::VectorXd::Zero(12);	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		dqJ_prev = Eigen::VectorXd::Zero(12);	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		qJ_ref_prev = Eigen::VectorXd::Zero(12);  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 		dqJ_ref_prev = Eigen::VectorXd::Zero(12); // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
 		qT_ref = Eigen::VectorXd::Zero(12); // Measured Joint positions (j1, j2, j3, j4, ...)
 
+		leg_constraint.resize(4, true);
+
 		qJ = Eigen::Map<Eigen::VectorXd>(init_pos.data(), init_pos.size()); // Assign initial joint positions from parameter
-		qJ_ref = qJ; qJ_prev = qJ; qJ_ref_prev = qJ; // Set reference and previous values to initial positions
-		
+		qJ_ref = qJ;
+		qJ_prev = qJ;
+		qJ_ref_prev = qJ; // Set reference and previous values to initial positions
+
 		qp = fullForwardKinematics();
-		qp_ref = qp; 
+		qp_ref = qp;
 
 		I[0] << 190521.10058e-6, 0.0, 0.0,
 			0.0, 588124.01325e-6, 0.0,
@@ -115,8 +118,9 @@ public:
 		// Set up publishers for desired control effort
 		desired_control_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_desired_control", 10);
 
-		// Set up publisher for endpoint messages
+		// Set up publishers for endpoint messages
 		endpoint_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint", 10);
+		endpoint_velocity_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint_velocity", 10);
 
 		// Create timer to update the control commands
 		timer_ = rclcpp::create_timer(
@@ -132,7 +136,6 @@ public:
 
 		// Feedback for controller start
 		RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
-
 	}
 
 private:
@@ -166,17 +169,41 @@ private:
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
 		endpoint_msg.header.stamp = stamp;
 
+		quadruped_interfaces::msg::Endpoint endpoint_velocity_msg;
+		endpoint_velocity_msg.header.stamp = stamp;
+
 		qp = fullForwardKinematics();
 
-		dqJ_ref = trajectoryGeneratorLinearOnly(dqb_ref, dqp_ref);
-		// dqJ_ref = trajectoryGenerator(dqb_ref, dqp_ref);
-		
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			const int idx = 3 * leg;
+			const Eigen::MatrixXd J_leg = computeJacobian(qJ.segment<3>(idx), leg);
+			dqp.segment<3>(idx).noalias() = J_leg.topRows(3) * dqJ.segment<3>(idx);
+			dqp.segment<3>(idx) += dqb_ref.segment<3>(0);
+		}
+
+		const double dt = control_time_step_ms / 1000.0;
+		if (dqp_ref.size() == 24 && qp_ref.size() == 12)
+		{
+			for (int leg = 0; leg < 4; ++leg)
+			{
+				const int qp_idx = 3 * leg;
+				const int dqp_idx = 6 * leg;
+
+				qp_ref.segment<3>(qp_idx) -= dqb_ref.segment<3>(0) * dt;
+				qp_ref.segment<3>(qp_idx) += dqp_ref.segment<3>(dqp_idx) * dt;
+
+			}
+		}
+
+		dqJ_ref = trajectoryGeneratorLinearOnly();
+
 		static bool first = true;
 		if (first)
 		{
-			qJ_prev = qJ; // Update previous joint positions
-			dqJ_prev = dqJ; // Update previous joint velocities    
-			qJ_ref_prev = qJ_ref; // Update previous reference joint positions
+			qJ_prev = qJ;			// Update previous joint positions
+			dqJ_prev = dqJ;			// Update previous joint velocities
+			qJ_ref_prev = qJ_ref;	// Update previous reference joint positions
 			dqJ_ref_prev = dqJ_ref; // Update previous reference joint velocities
 			first = false;
 		}
@@ -190,34 +217,53 @@ private:
 		{
 			control_effort.position[i] = qJ_ref(i);
 			control_effort.velocity[i] = dqJ_ref(i);
-			control_effort.effort[i]   = qT_ref(i);
+			control_effort.effort[i] = qT_ref(i);
 		}
 
 		// Publish the control effort for the desired joint states
 		desired_control_pub_->publish(control_effort);
 
-		qJ_prev = qJ; // Update previous joint positions
-		dqJ_prev = dqJ; // Update previous joint velocities    
-		qJ_ref_prev = qJ_ref; // Update previous reference joint positions
+		qJ_prev = qJ;			// Update previous joint positions
+		dqJ_prev = dqJ;			// Update previous joint velocities
+		qJ_ref_prev = qJ_ref;	// Update previous reference joint positions
 		dqJ_ref_prev = dqJ_ref; // Update previous reference joint velocities
 
-		// Fill in desired position
-		// endpoint_msg.desired.x = footPosition[0].x();
-		// endpoint_msg.desired.y = footPosition[0].y();
-		// endpoint_msg.desired.z = footPosition[0].z();
+		if (qp_ref.size() >= 3 && qp.size() >= 3)
+		{
+			// Fill in desired position
+			endpoint_msg.desired.x = qp_ref[0];
+			endpoint_msg.desired.y = qp_ref[1];
+			endpoint_msg.desired.z = qp_ref[2];
 
-		// // Fill in actual position
-		// endpoint_msg.actual.x = footPositionActual[0].x();
-		// endpoint_msg.actual.y = footPositionActual[0].y();
-		// endpoint_msg.actual.z = footPositionActual[0].z();
+			// Fill in actual position
+			endpoint_msg.actual.x = qp[0];
+			endpoint_msg.actual.y = qp[1];
+			endpoint_msg.actual.z = qp[2];
 
-		// endpoint_msg.error.x = footPosition[0].x() - footPositionActual[0].x();
-		// endpoint_msg.error.y = footPosition[0].y() - footPositionActual[0].y();
-		// endpoint_msg.error.z = footPosition[0].z() - footPositionActual[0].z();
+			endpoint_msg.error.x = endpoint_msg.desired.x - endpoint_msg.actual.x;
+			endpoint_msg.error.y = endpoint_msg.desired.y - endpoint_msg.actual.y;
+			endpoint_msg.error.z = endpoint_msg.desired.z - endpoint_msg.actual.z;
+		}
 
-		// endpoint_publisher_->publish(endpoint_msg);
+		if (dqp_ref.size() >= 3 && dqp.size() >= 3)
+		{
+			endpoint_velocity_msg.desired.x = dqp_ref[0];
+			endpoint_velocity_msg.desired.y = dqp_ref[1];
+			endpoint_velocity_msg.desired.z = dqp_ref[2];
+
+			endpoint_velocity_msg.actual.x = dqp[0];
+			endpoint_velocity_msg.actual.y = dqp[1];
+			endpoint_velocity_msg.actual.z = dqp[2];
+
+			endpoint_velocity_msg.error.x = endpoint_velocity_msg.desired.x - endpoint_velocity_msg.actual.x;
+			endpoint_velocity_msg.error.y = endpoint_velocity_msg.desired.y - endpoint_velocity_msg.actual.y;
+			endpoint_velocity_msg.error.z = endpoint_velocity_msg.desired.z - endpoint_velocity_msg.actual.z;
+		}
+
+		endpoint_publisher_->publish(endpoint_msg);
+		endpoint_velocity_publisher_->publish(endpoint_velocity_msg);
 	}
- 
+
 	/*
 	 * Callback that updates the current joint states based on encoder feedback.
 	 * Receives current joint states and saves the most recent to internal variables.
@@ -233,7 +279,6 @@ private:
 		return; // This function is not used in this controller
 	};
 
-
 	/*
 	 * Callback that updates the desired foot states based on incoming messages.
 	 * Receives desired foot positions and velocities and saves the most recent to internal variables.
@@ -242,9 +287,13 @@ private:
 	 */
 	void fullBodyCommandCallback(const quadruped_interfaces::msg::FullBodyControlCommand::SharedPtr msg)
 	{
-		// Map directly into Eigen vectors
-		dqb_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqb_ref.data(), msg->dqb_ref.size());
-		dqp_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqp_ref.data(), msg->dqp_ref.size());
+			// Map directly into Eigen vectors
+			dqb_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqb_ref.data(), msg->dqb_ref.size());
+			dqp_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqp_ref.data(), msg->dqp_ref.size());
+			if (!msg->leg_constraint.empty())
+			{
+				leg_constraint.assign(msg->leg_constraint.begin(), msg->leg_constraint.end());
+			}
 
 		return;
 	}
@@ -360,8 +409,8 @@ private:
 	}
 
 	Eigen::VectorXd trajectoryGenerator(
-										const Eigen::VectorXd &dqb_ref,
-										const Eigen::VectorXd &dqp_ref)
+		const Eigen::VectorXd &dqb_ref,
+		const Eigen::VectorXd &dqp_ref)
 	{
 		// Get Full Jacobian matric
 		Eigen::MatrixXd J_full = computeFullJacobian();
@@ -371,13 +420,16 @@ private:
 
 		// Joint velocity
 		Eigen::VectorXd qld_calc = Jl.completeOrthogonalDecomposition().pseudoInverse() * (dqp_ref - Jb * dqb_ref);
+		// double lambda = 1e-5;
+		// Eigen::MatrixXd I = Eigen::MatrixXd::Identity(Jl.cols(), Jl.cols());
+		// Eigen::VectorXd qld_calc = (Jl.transpose() * Jl + lambda * lambda * I)
+		// 			   .ldlt()
+		// 			   .solve(Jl.transpose() * (dqp_ref - Jb * dqb_ref));
 
 		return qld_calc;
 	}
 
-	Eigen::VectorXd trajectoryGeneratorLinearOnly(
-		const Eigen::VectorXd &dqb_ref,						 // 6x1 body twist [v; w]
-		const Eigen::VectorXd &dqp_ref)						 // 24x1 desired [v; w] per foot
+	Eigen::VectorXd trajectoryGeneratorLinearOnly() // 24x1 desired [v; w] per foot
 	{
 		// Full Jacobian: 24x18
 		Eigen::MatrixXd J_full = computeFullJacobian();
@@ -411,7 +463,15 @@ private:
 		}
 
 		// Solve least squares
-		Eigen::VectorXd qld_calc = Jl_v.completeOrthogonalDecomposition().pseudoInverse() * (vl_v - Jb_v * dqb_ref);
+		// Eigen::VectorXd qld_calc = Jl_v.completeOrthogonalDecomposition().pseudoInverse() * (vl_v - Jb_v * dqb_ref);
+
+		Eigen::VectorXd qld_calc = Jl_v.inverse() * (vl_v - Jb_v * dqb_ref);
+
+		// double lambda = 1e-5;
+		// Eigen::MatrixXd I = Eigen::MatrixXd::Identity(Jl.cols(), Jl.cols());
+		// Eigen::VectorXd qld_calc = (Jl.transpose() * Jl + lambda * lambda * I)
+		// 			   .ldlt()
+		// 			   .solve(Jl.transpose() * (dqp_ref - Jb * dqb_ref));
 
 		return qld_calc; // 12x1 joint velocities
 	}
@@ -630,7 +690,6 @@ private:
 		oc[2] = Eigen::Vector3d(l2, 0, 0);	// from frame2 to frame3
 		oc[3] = Eigen::Vector3d(0, -l3, 0); // from frame3 to end
 
-
 		const std::array<Eigen::Vector3d, 3> pcoml = {
 			pcom[leg * 3 + 1],
 			pcom[leg * 3 + 2],
@@ -681,10 +740,12 @@ private:
 		return tau;
 	}
 
-	Eigen::VectorXd fullNEDynamics() {
+	Eigen::VectorXd fullNEDynamics()
+	{
 		Eigen::VectorXd tau(12);
 
-		for (size_t leg = 0; leg < 4; ++leg) {
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
 			tau.segment<3>(3 * leg) = NE_Dynamics(qJ.segment<3>(3 * leg), dqJ.segment<3>(3 * leg), zero3, -gravity, leg);
 		}
 
@@ -704,7 +765,6 @@ private:
 
 		res->ok = true;
 		res->message = "Queued generalized coordinate set.";
-
 	}
 
 	// Declaration for ROS2 subscriptions and publishers
@@ -714,6 +774,7 @@ private:
 
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
+	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_velocity_publisher_;
 
 	rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
 	rclcpp::TimerBase::SharedPtr timer_;
@@ -727,22 +788,24 @@ private:
 	// Eigen::VectorXd qb_ref; // Reference body positions (XYZRPY)
 	Eigen::VectorXd dqb_ref; // Reference body velocitys (XYZRPY)
 
-	Eigen::VectorXd qp; // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
-	Eigen::VectorXd dqp; // Measured Paw velocitys (p1 XYZRPY, p2 XYZRPY, ...)
-	Eigen::VectorXd qp_ref; // Reference Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+	Eigen::VectorXd qp;		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+	Eigen::VectorXd dqp;	 // Measured Paw velocitys (p1 XYZRPY, p2 XYZRPY, ...)
+	Eigen::VectorXd qp_ref;	 // Reference Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
 	Eigen::VectorXd dqp_ref; // Reference Paw velocitys (p1 XYZRPY, p2 XYZRPY, ...)
 
-	Eigen::VectorXd qJ; // Measured Joint positions (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-	Eigen::VectorXd dqJ; // Measured Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-	Eigen::VectorXd qJ_ref; // Reference Joint positions (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qJ;		 // Measured Joint positions (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd dqJ;	 // Measured Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qJ_ref;	 // Reference Joint positions (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 	Eigen::VectorXd dqJ_ref; // Reference Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
-	Eigen::VectorXd qJ_prev; // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-	Eigen::VectorXd dqJ_prev; // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
-	Eigen::VectorXd qJ_ref_prev; // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qJ_prev;	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd dqJ_prev;	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qJ_ref_prev;  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 	Eigen::VectorXd dqJ_ref_prev; // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
 	Eigen::VectorXd qT_ref; // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+
+	std::vector<bool> leg_constraint;	 // Inclusion of leg in constraint matrix (1 = included, 0 = not)
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
 

@@ -32,6 +32,28 @@ public:
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
+		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
+		if (kp_param.size() == 3)
+		{
+			cartesian_kp_ << kp_param[0], kp_param[1], kp_param[2];
+		}
+		else
+		{
+			cartesian_kp_ << 5000.0, 5000.0, 7000.0;
+			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kp must have 3 entries. Using defaults.");
+		}
+
+		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
+		if (kd_param.size() == 3)
+		{
+			cartesian_kd_ << kd_param[0], kd_param[1], kd_param[2];
+		}
+		else
+		{
+			cartesian_kd_ << 20.0, 20.0, 35.0;
+			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kd must have 3 entries. Using defaults.");
+		}
+
 		// qb = Eigen::VectorXd::Zero(6); // Measured body positions (XYZRPY)
 		// dqb = Eigen::VectorXd::Zero(6); // Measured body velocitys (XYZRPY)
 		// qb_ref = Eigen::VectorXd::Zero(6); // Reference body positions (XYZRPY)
@@ -52,7 +74,7 @@ public:
 		qJ_ref_prev = Eigen::VectorXd::Zero(12);  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 		dqJ_ref_prev = Eigen::VectorXd::Zero(12); // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
-		qT_ref = Eigen::VectorXd::Zero(12); // Measured Joint positions (j1, j2, j3, j4, ...)
+		qT_comp = Eigen::VectorXd::Zero(12); // Measured Joint positions (j1, j2, j3, j4, ...)
 
 		leg_constraint.resize(4, true);
 
@@ -187,11 +209,14 @@ private:
 
 		qp = fullForwardKinematics();
 
+		std::array<Eigen::Matrix3d, 4> leg_jacobians_linear;
+
 		for (int leg = 0; leg < 4; ++leg)
 		{
 			const int idx = 3 * leg;
-			const Eigen::MatrixXd J_leg = computeJacobian(qJ.segment<3>(idx), leg);
-			dqp.segment<3>(idx).noalias() = J_leg.topRows(3) * dqJ.segment<3>(idx);
+			const Eigen::Matrix<double, 6, 3> J_leg = computeJacobian(qJ.segment<3>(idx), leg);
+			leg_jacobians_linear[leg] = J_leg.topRows(3);
+			dqp.segment<3>(idx).noalias() = leg_jacobians_linear[leg] * dqJ.segment<3>(idx);
 			dqp.segment<3>(idx) += dqb_ref.segment<3>(0);
 		}
 
@@ -209,37 +234,28 @@ private:
 			}
 		}
 
-		dqJ_ref = trajectoryGeneratorLinearOnly();
-
-		static bool first = true;
-		if (first)
+		Eigen::VectorXd qT_ref = Eigen::VectorXd::Zero(12);
+		for (int leg = 0; leg < 4; ++leg)
 		{
-			qJ_prev = qJ;			// Update previous joint positions
-			dqJ_prev = dqJ;			// Update previous joint velocities
-			qJ_ref_prev = qJ_ref;	// Update previous reference joint positions
-			dqJ_ref_prev = dqJ_ref; // Update previous reference joint velocities
-			first = false;
+			const int qp_idx = 3 * leg;
+			const int dqp_idx = 6 * leg;
+			const Eigen::Vector3d pos_error = qp_ref.segment<3>(qp_idx) - qp.segment<3>(qp_idx);
+			const Eigen::Vector3d vel_error = dqp_ref.segment<3>(dqp_idx) - dqp.segment<3>(qp_idx);
+			const Eigen::Vector3d force = cartesian_kp_.cwiseProduct(pos_error) + cartesian_kd_.cwiseProduct(vel_error);
+			qT_ref.segment<3>(qp_idx).noalias() = leg_jacobians_linear[leg].transpose() * force;
 		}
 
-		double alpha = 0.0; // Smoothing factor for reference position update
-		qJ_ref = qJ_ref_prev + (control_time_step_ms / 1000.0) * 0.5 * (dqJ_ref + dqJ_ref_prev) - alpha * (qJ_ref_prev - qJ_prev);
-
-		qT_ref = fullNEDynamics();
+		qT_comp = fullNEDynamics();
 
 		for (int i = 0; i < 12; ++i)
 		{
-			control_effort.position[i] = qJ_ref(i);
-			control_effort.velocity[i] = dqJ_ref(i);
-			control_effort.effort[i] = qT_ref(i);
+			control_effort.position[i] = 0.0;
+			control_effort.velocity[i] = 0.0;
+			control_effort.effort[i] = qT_ref(i) + qT_comp(i);
 		}
 
 		// Publish the control effort for the desired joint states
 		desired_control_pub_->publish(control_effort);
-
-		qJ_prev = qJ;			// Update previous joint positions
-		dqJ_prev = dqJ;			// Update previous joint velocities
-		qJ_ref_prev = qJ_ref;	// Update previous reference joint positions
-		dqJ_ref_prev = dqJ_ref; // Update previous reference joint velocities
 
 		if (qp_ref.size() >= 3 && qp.size() >= 3)
 		{
@@ -861,11 +877,14 @@ private:
 	Eigen::VectorXd qJ_ref_prev;  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 	Eigen::VectorXd dqJ_ref_prev; // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
-	Eigen::VectorXd qT_ref; // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qT_comp; // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 	Eigen::VectorXd trajectory_q_des_;
 	bool trajectory_initialized_ = false;
 
 	std::vector<bool> leg_constraint;	 // Inclusion of leg in constraint matrix (1 = included, 0 = not)
+
+	Eigen::Vector3d cartesian_kp_;
+	Eigen::Vector3d cartesian_kd_;
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
 

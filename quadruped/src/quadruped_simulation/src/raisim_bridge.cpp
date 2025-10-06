@@ -2,6 +2,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <builtin_interfaces/msg/time.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 #include <raisim/World.hpp>
 #include <raisim/RaisimServer.hpp>
@@ -155,6 +156,10 @@ public:
 
 		// Create Publisher for robot joint states
 		joint_state_pub = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
+		odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", 10);
+		odom_msg_.header.frame_id = "odom";
+		odom_msg_.child_frame_id = "base_link";
+		odom_msg_.pose.pose.orientation.w = 1.0;
 
 		// Create subscription to control node topic for joint effort commands
 		desired_cmd_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -250,6 +255,9 @@ private:
 		js.velocity.resize(dof);
 		js.effort.resize(dof);
 
+		// Fill odometry message from generalized coordinates and velocities
+		odom_msg_.header.stamp = stamp;
+
 		// Initialize torque vector
 		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
 
@@ -284,6 +292,21 @@ private:
 				js.velocity[i] = gv[i + 6];
 				js.effort[i] = gf[i + 6];
 			}
+
+			odom_msg_.pose.pose.position.x = gc[0];
+			odom_msg_.pose.pose.position.y = gc[1];
+			odom_msg_.pose.pose.position.z = gc[2];
+			odom_msg_.pose.pose.orientation.x = gc[3];
+			odom_msg_.pose.pose.orientation.y = gc[4];
+			odom_msg_.pose.pose.orientation.z = gc[5];
+			odom_msg_.pose.pose.orientation.w = gc[6];
+
+			odom_msg_.twist.twist.linear.x = gv[0];
+			odom_msg_.twist.twist.linear.y = gv[1];
+			odom_msg_.twist.twist.linear.z = gv[2];
+			odom_msg_.twist.twist.angular.x = gv[3];
+			odom_msg_.twist.twist.angular.y = gv[4];
+			odom_msg_.twist.twist.angular.z = gv[5];
 		}
 
 		// Send forces to the simulation
@@ -291,6 +314,7 @@ private:
 
 		// Publish joint states
 		joint_state_pub->publish(js);
+		odom_pub_->publish(odom_msg_);
 
 		// Step simulation
 		server.integrateWorldThreadSafe();
@@ -352,7 +376,6 @@ private:
 	// 	robot->setGeneralizedCoordinate(target);
 	// 	robot->setGeneralizedVelocity(Eigen::VectorXd::Zero(robot->getDOF()));
 
-
 	// 	// {
 	// 	// 	std::lock_guard<std::mutex> lock(pending_mutex_);
 	// 	// 	pending_gc_ = target;
@@ -376,9 +399,11 @@ private:
 
 	// Declare ROS2 publishers, sibscribers and timers
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
+	rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr desired_cmd_sub_;
 	rclcpp::TimerBase::SharedPtr timer_;
 	// rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
+	nav_msgs::msg::Odometry odom_msg_;
 
 	// Declare internal timer variables
 	std::chrono::_V2::system_clock::time_point startTime;

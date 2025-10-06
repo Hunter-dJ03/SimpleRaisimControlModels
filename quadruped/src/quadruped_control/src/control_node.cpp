@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include "quadruped_interfaces/msg/foot_states.hpp"
 #include "quadruped_interfaces/msg/full_body_control_command.hpp"
@@ -54,9 +55,9 @@ public:
 			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kd must have 3 entries. Using defaults.");
 		}
 
-		// qb = Eigen::VectorXd::Zero(6); // Measured body positions (XYZRPY)
-		// dqb = Eigen::VectorXd::Zero(6); // Measured body velocitys (XYZRPY)
-		// qb_ref = Eigen::VectorXd::Zero(6); // Reference body positions (XYZRPY)
+		qb = Eigen::VectorXd::Zero(6); // Measured body positions (XYZRPY)
+		dqb = Eigen::VectorXd::Zero(6); // Measured body velocitys (XYZRPY)
+		qb_ref = Eigen::VectorXd::Zero(6); // Reference body positions (XYZRPY)
 		dqb_ref = Eigen::VectorXd::Zero(6); // Reference body velocitys (XYZRPY)
 
 		qp = Eigen::VectorXd::Zero(12);		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
@@ -77,6 +78,10 @@ public:
 		qT_comp = Eigen::VectorXd::Zero(12); // Measured Joint positions (j1, j2, j3, j4, ...)
 
 		leg_constraint.resize(4, true);
+
+		latest_odom_.pose.pose.orientation.w = 1.0;
+		latest_odom_.header.frame_id = "odom";
+		latest_odom_.child_frame_id = "base_link";
 
 		qJ = Eigen::Map<Eigen::VectorXd>(init_pos.data(), init_pos.size()); // Assign initial joint positions from parameter
 		qJ_ref = qJ;
@@ -146,6 +151,10 @@ public:
 			"joint_states", 10,
 			std::bind(&QuadrupedLegController::jointStateCallback, this, std::placeholders::_1));
 
+		odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+			"odom", 10,
+			std::bind(&QuadrupedLegController::odometryCallback, this, std::placeholders::_1));
+
 		full_body_command_sub_ = this->create_subscription<quadruped_interfaces::msg::FullBodyControlCommand>(
 			"full_body_control_command", 10,
 			std::bind(&QuadrupedLegController::fullBodyCommandCallback, this, std::placeholders::_1));
@@ -199,6 +208,27 @@ private:
 		control_effort.position.resize(dof);
 		control_effort.velocity.resize(dof);
 		control_effort.effort.resize(dof);
+
+		qb[0] = latest_odom_.pose.pose.position.x;
+		qb[1] = latest_odom_.pose.pose.position.y;
+		qb[2] = latest_odom_.pose.pose.position.z;
+		Eigen::Quaterniond q_body(
+			latest_odom_.pose.pose.orientation.w,
+			latest_odom_.pose.pose.orientation.x,
+			latest_odom_.pose.pose.orientation.y,
+			latest_odom_.pose.pose.orientation.z);
+		q_body.normalize();
+		const Eigen::Vector3d rpy = q_body.toRotationMatrix().eulerAngles(0, 1, 2);
+		qb[3] = rpy[0];
+		qb[4] = rpy[1];
+		qb[5] = rpy[2];
+
+		dqb[0] = latest_odom_.twist.twist.linear.x;
+		dqb[1] = latest_odom_.twist.twist.linear.y;
+		dqb[2] = latest_odom_.twist.twist.linear.z;
+		dqb[3] = latest_odom_.twist.twist.angular.x;
+		dqb[4] = latest_odom_.twist.twist.angular.y;
+		dqb[5] = latest_odom_.twist.twist.angular.z;
 
 		// Create endpoint message
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
@@ -307,6 +337,11 @@ private:
 
 		return; // This function is not used in this controller
 	};
+
+	void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
+	{
+		latest_odom_ = *msg;
+	}
 
 	/*
 	 * Callback that updates the desired foot states based on incoming messages.
@@ -845,6 +880,7 @@ private:
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 
 	rclcpp::Subscription<quadruped_interfaces::msg::FullBodyControlCommand>::SharedPtr full_body_command_sub_;
+	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
@@ -853,13 +889,15 @@ private:
 	rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
 	rclcpp::TimerBase::SharedPtr timer_;
 
+	nav_msgs::msg::Odometry latest_odom_;
+
 	// Declaration for model parameters and variables
 	std::vector<double> init_pos;
 	std::vector<double> link_lengths;
 
-	// Eigen::VectorXd qb; // Measured body positions (XYZRPY)
-	// Eigen::VectorXd dqb; // Measured body velocitys (XYZRPY)
-	// Eigen::VectorXd qb_ref; // Reference body positions (XYZRPY)
+	Eigen::VectorXd qb; // Measured body positions (XYZRPY)
+	Eigen::VectorXd dqb; // Measured body velocitys (XYZRPY)
+	Eigen::VectorXd qb_ref; // Reference body positions (XYZRPY)
 	Eigen::VectorXd dqb_ref; // Reference body velocitys (XYZRPY)
 
 	Eigen::VectorXd qp;		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)

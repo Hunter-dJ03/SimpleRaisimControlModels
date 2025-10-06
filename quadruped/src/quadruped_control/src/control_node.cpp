@@ -33,7 +33,8 @@ public:
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
-		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
+		// auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
+		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {0.0, 0.0, 0.0});
 		if (kp_param.size() == 3)
 		{
 			cartesian_kp_ << kp_param[0], kp_param[1], kp_param[2];
@@ -44,7 +45,9 @@ public:
 			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kp must have 3 entries. Using defaults.");
 		}
 
-		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
+		// auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
+		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {0.0, 0.0, 0.0});
+
 		if (kd_param.size() == 3)
 		{
 			cartesian_kd_ << kd_param[0], kd_param[1], kd_param[2];
@@ -762,42 +765,37 @@ private:
 	{
 		assert(q.size() == 3 && qd.size() == 3 && qdd.size() == 3);
 
-		// Link lengths
-		double l1 = link_lengths[0], l2 = link_lengths[1], l3 = link_lengths[2];
-
-		// Adjust link length based on leg index (for left legs)
+		// Link geometry
+		double l1 = link_lengths[0];
+		const double l2 = link_lengths[1];
+		const double l3 = link_lengths[2];
 		if (leg == 0 || leg == 1)
 		{
-			l1 *= -1;
+			l1 *= -1.0;
 		}
 
-		// Precompute useful terms
+		// Precompute rotation terms
 		const double c1 = std::cos(q(0)), s1 = std::sin(q(0));
 		const double c2 = std::cos(q(1)), s2 = std::sin(q(1));
 		const double c3 = std::cos(q(2)), s3 = std::sin(q(2));
 
-		// Rotation matrices from joint i to joint i+1
 		std::array<Eigen::Matrix3d, 4> R;
 		R[0] << c1, -s1, 0,
 			s1, c1, 0,
 			0, 0, 1; // R01
-
 		R[1] << s2, c2, 0,
 			0, 0, -1,
-			-c2, s2, 0; // R12 (alpha1 = -pi/2 folded in)
-
+			-c2, s2, 0; // R12
 		R[2] << c3, -s3, 0,
 			s3, c3, 0,
 			0, 0, 1; // R23
+		R[3].setIdentity(); // R3E
 
-		R[3].setIdentity(); // R3E (end effector)
-
-		// Joint offset in each link frame
 		std::array<Eigen::Vector3d, 4> oc;
-		oc[0] = Eigen::Vector3d::Zero();	// from frame0 to frame1
-		oc[1] = Eigen::Vector3d(0, l1, 0);	// from frame1 to frame2
-		oc[2] = Eigen::Vector3d(l2, 0, 0);	// from frame2 to frame3
-		oc[3] = Eigen::Vector3d(0, -l3, 0); // from frame3 to end
+		oc[0] = Eigen::Vector3d::Zero();
+		oc[1] = Eigen::Vector3d(0.0, l1, 0.0);
+		oc[2] = Eigen::Vector3d(l2, 0.0, 0.0);
+		oc[3] = Eigen::Vector3d(0.0, -l3, 0.0);
 
 		const std::array<Eigen::Vector3d, 3> pcoml = {
 			pcom[leg * 3 + 1],
@@ -809,41 +807,48 @@ private:
 			I[leg * 3 + 2],
 			I[leg * 3 + 3]};
 
-		// Declare Newton Euler variables
-		Eigen::Vector3d z0(0, 0, 1);
-		std::vector<Eigen::Vector3d> w(4, Eigen::Vector3d::Zero());
-		std::vector<Eigen::Vector3d> wd(4, Eigen::Vector3d::Zero());
-		std::vector<Eigen::Vector3d> vd(4, Eigen::Vector3d::Zero());
-		std::array<Eigen::Vector3d, 3> vdcom;
+		Eigen::Vector3d z0(0.0, 0.0, 1.0);
 
-		// Gravity in frame 0
-		vd[0] << g, 0, 0;
+		std::array<Eigen::Vector3d, 4> w{};
+		std::array<Eigen::Vector3d, 4> wd{};
+		std::array<Eigen::Vector3d, 4> v{};
+		std::array<Eigen::Vector3d, 4> vcom{};
+		v[0] << g, 0.0, 0.0;
 
-		// Neuton Euler forward iteration
-		for (int i = 0; i < 3; ++i)
+		for (int idx = 1; idx <= 3; ++idx)
 		{
-			const Eigen::Matrix3d Rt = R[i].transpose();
-			const Eigen::Vector3d wi = w[i];
-			const Eigen::Vector3d wdi = wd[i];
-			const Eigen::Vector3d vdi = vd[i];
+			const Eigen::Matrix3d Rt = R[idx - 1].transpose();
+			// const Eigen::Vector3d &wi_prev = w[idx - 1];
+			// const Eigen::Vector3d &wdi_prev = wd[idx - 1];
+			const Eigen::Vector3d &o_i = oc[idx - 1];     // ^i o_{i-1}
+			const Eigen::Vector3d &p_com_i = pcoml[idx - 1]; // ^i p_{CoM_i}
+			
 
-			w[i + 1] = Rt * wi + qd(i) * z0;
-			wd[i + 1] = Rt * wdi + qdd(i) * z0 + qd(i) * ((Rt * wi).cross(z0));
-			vd[i + 1] = Rt * (vdi + wdi.cross(oc[i]) + wi.cross(wi.cross(oc[i])));
-			vdcom[i] = vd[i + 1] + wd[i + 1].cross(pcoml[i]) + w[i + 1].cross(w[i + 1].cross(pcoml[i]));
+			const double qd_i = qd(idx - 1);
+			const double qdd_i = qdd(idx - 1);
+
+			w[idx]   = Rt * (w[idx - 1]  + qd_i  * z0);
+			wd[idx]  = Rt * (wd[idx - 1] + qdd_i * z0 + qd_i * w[idx - 1].cross(z0));
+			v[idx]   = Rt * (v[idx - 1]  + wd[idx - 1].cross(o_i) + w[idx - 1].cross(w[idx - 1].cross(o_i)));
+			vcom[idx]= v[idx] + wd[idx].cross(p_com_i) + w[idx].cross(w[idx].cross(p_com_i));
+			
 		}
 
-		// Neuton Euler Backward iteration
-		std::vector<Eigen::Vector3d> f(4, Eigen::Vector3d::Zero());
-		std::vector<Eigen::Vector3d> n(4, Eigen::Vector3d::Zero());
+		std::array<Eigen::Vector3d, 4> f{};
+		std::array<Eigen::Vector3d, 4> n{};
+
 		Eigen::VectorXd tau(3);
 
-		for (int i = 2; i >= 0; --i)
+		for (int idx = 3; idx >= 1; --idx)
 		{
-			const Eigen::Matrix3d &Rnext = R[i + 1];
-			f[i] = Rnext * f[i + 1] + mass[i + 1] * vdcom[i];
-			n[i] = Il[i] * wd[i + 1] + w[i + 1].cross(Il[i] * w[i + 1]) - f[i].cross(pcoml[i]) + Rnext * n[i + 1] + (Rnext * f[i + 1]).cross(pcoml[i] - oc[i + 1]);
-			tau(i) = n[i].dot(z0);
+			const int link = idx - 1;
+			const Eigen::Matrix3d &Rnext = R[idx];
+			const Eigen::Vector3d f_next_in_curr = Rnext * f[idx];
+			const Eigen::Vector3d n_next_in_curr = Rnext * n[idx];
+
+			f[link] = f_next_in_curr + mass[link + 1] * vcom[idx];
+			n[link] = Il[link] * wd[idx] + w[idx].cross(Il[link] * w[idx]) - f[link].cross(pcoml[link]) + n_next_in_curr + f_next_in_curr.cross(pcoml[link] - oc[idx]);
+			tau(link) = n[link].dot(z0);
 		}
 
 		return tau;

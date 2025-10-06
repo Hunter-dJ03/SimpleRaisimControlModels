@@ -94,6 +94,10 @@ def generate_launch_description():
         # After a delay, start the raisim node and control node
         TimerAction(
             period=2.0,
-            actions=[raisim_node, control_node, gait_control_node],
+            actions=[
+                     raisim_node, 
+                     control_node, 
+                    #  gait_control_node,
+                     ],
         ),
     ])

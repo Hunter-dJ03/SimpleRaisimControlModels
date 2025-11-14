@@ -58,9 +58,9 @@ public:
 			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kd must have 3 entries. Using defaults.");
 		}
 
-		qb = Eigen::VectorXd::Zero(6); // Measured body positions (XYZRPY)
-		dqb = Eigen::VectorXd::Zero(6); // Measured body velocitys (XYZRPY)
-		qb_ref = Eigen::VectorXd::Zero(6); // Reference body positions (XYZRPY)
+		qb = Eigen::VectorXd::Zero(6);		// Measured body positions (XYZRPY)
+		dqb = Eigen::VectorXd::Zero(6);		// Measured body velocitys (XYZRPY)
+		qb_ref = Eigen::VectorXd::Zero(6);	// Reference body positions (XYZRPY)
 		dqb_ref = Eigen::VectorXd::Zero(6); // Reference body velocitys (XYZRPY)
 
 		qp = Eigen::VectorXd::Zero(12);		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
@@ -215,6 +215,7 @@ private:
 		qb[0] = latest_odom_.pose.pose.position.x;
 		qb[1] = latest_odom_.pose.pose.position.y;
 		qb[2] = latest_odom_.pose.pose.position.z;
+		
 		Eigen::Quaterniond q_body(
 			latest_odom_.pose.pose.orientation.w,
 			latest_odom_.pose.pose.orientation.x,
@@ -263,7 +264,6 @@ private:
 
 				qp_ref.segment<3>(qp_idx) -= dqb_ref.segment<3>(0) * dt;
 				qp_ref.segment<3>(qp_idx) += dqp_ref.segment<3>(dqp_idx) * dt;
-
 			}
 		}
 
@@ -354,13 +354,13 @@ private:
 	 */
 	void fullBodyCommandCallback(const quadruped_interfaces::msg::FullBodyControlCommand::SharedPtr msg)
 	{
-			// Map directly into Eigen vectors
-			dqb_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqb_ref.data(), msg->dqb_ref.size());
-			dqp_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqp_ref.data(), msg->dqp_ref.size());
-			if (!msg->leg_constraint.empty())
-			{
-				leg_constraint.assign(msg->leg_constraint.begin(), msg->leg_constraint.end());
-			}
+		// Map directly into Eigen vectors
+		dqb_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqb_ref.data(), msg->dqb_ref.size());
+		dqp_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqp_ref.data(), msg->dqp_ref.size());
+		if (!msg->leg_constraint.empty())
+		{
+			leg_constraint.assign(msg->leg_constraint.begin(), msg->leg_constraint.end());
+		}
 
 		return;
 	}
@@ -513,7 +513,7 @@ private:
 	{
 		Eigen::Matrix3d A;
 		A << 0.0, -a.z(), a.y(),
-			 a.z(), 0.0, -a.x(),
+			a.z(), 0.0, -a.x(),
 			-a.y(), a.x(), 0.0;
 		return A;
 	}
@@ -550,8 +550,7 @@ private:
 		const double d1_sgn = hipOffsetSign(leg);
 
 		Eigen::Matrix4d TB0;
-		TB0 <<
-			0, 0, 1, r_bl.x(),
+		TB0 << 0, 0, 1, r_bl.x(),
 			0, -1, 0, r_bl.y(),
 			1, 0, 0, r_bl.z(),
 			0, 0, 0, 1;
@@ -560,8 +559,7 @@ private:
 		const double th1 = q_leg(0);
 		const double c1 = std::cos(th1);
 		const double s1 = std::sin(th1);
-		T01 <<
-			c1, -s1, 0, 0,
+		T01 << c1, -s1, 0, 0,
 			s1, c1, 0, 0,
 			0, 0, 1, 0,
 			0, 0, 0, 1;
@@ -570,8 +568,7 @@ private:
 		const double th2 = q_leg(1) - M_PI / 2.0;
 		const double c2 = std::cos(th2);
 		const double s2 = std::sin(th2);
-		T12 <<
-			c2, -s2, 0, 0,
+		T12 << c2, -s2, 0, 0,
 			0, 0, -1, -d1 * d1_sgn,
 			s2, c2, 0, 0,
 			0, 0, 0, 1;
@@ -580,15 +577,13 @@ private:
 		const double th3 = q_leg(2);
 		const double c3 = std::cos(th3);
 		const double s3 = std::sin(th3);
-		T23 <<
-			c3, -s3, 0, d2,
+		T23 << c3, -s3, 0, d2,
 			s3, c3, 0, 0,
 			0, 0, 1, 0,
 			0, 0, 0, 1;
 
 		Eigen::Matrix4d T3P;
-		T3P <<
-			1, 0, 0, 0,
+		T3P << 1, 0, 0, 0,
 			0, 1, 0, -d3,
 			0, 0, 1, 0,
 			0, 0, 0, 1;
@@ -788,7 +783,7 @@ private:
 			-c2, s2, 0; // R12
 		R[2] << c3, -s3, 0,
 			s3, c3, 0,
-			0, 0, 1; // R23
+			0, 0, 1;		// R23
 		R[3].setIdentity(); // R3E
 
 		std::array<Eigen::Vector3d, 4> oc;
@@ -820,18 +815,16 @@ private:
 			const Eigen::Matrix3d Rt = R[idx - 1].transpose();
 			// const Eigen::Vector3d &wi_prev = w[idx - 1];
 			// const Eigen::Vector3d &wdi_prev = wd[idx - 1];
-			const Eigen::Vector3d &o_i = oc[idx - 1];     // ^i o_{i-1}
+			const Eigen::Vector3d &o_i = oc[idx - 1];		 // ^i o_{i-1}
 			const Eigen::Vector3d &p_com_i = pcoml[idx - 1]; // ^i p_{CoM_i}
-			
 
 			const double qd_i = qd(idx - 1);
 			const double qdd_i = qdd(idx - 1);
 
-			w[idx]   = Rt * (w[idx - 1]  + qd_i  * z0);
-			wd[idx]  = Rt * (wd[idx - 1] + qdd_i * z0 + qd_i * w[idx - 1].cross(z0));
-			v[idx]   = Rt * (v[idx - 1]  + wd[idx - 1].cross(o_i) + w[idx - 1].cross(w[idx - 1].cross(o_i)));
-			vcom[idx]= v[idx] + wd[idx].cross(p_com_i) + w[idx].cross(w[idx].cross(p_com_i));
-			
+			w[idx] = Rt * (w[idx - 1] + qd_i * z0);
+			wd[idx] = Rt * (wd[idx - 1] + qdd_i * z0 + qd_i * w[idx - 1].cross(z0));
+			v[idx] = Rt * (v[idx - 1] + wd[idx - 1].cross(o_i) + w[idx - 1].cross(w[idx - 1].cross(o_i)));
+			vcom[idx] = v[idx] + wd[idx].cross(p_com_i) + w[idx].cross(w[idx].cross(p_com_i));
 		}
 
 		std::array<Eigen::Vector3d, 4> f{};
@@ -900,9 +893,9 @@ private:
 	std::vector<double> init_pos;
 	std::vector<double> link_lengths;
 
-	Eigen::VectorXd qb; // Measured body positions (XYZRPY)
-	Eigen::VectorXd dqb; // Measured body velocitys (XYZRPY)
-	Eigen::VectorXd qb_ref; // Reference body positions (XYZRPY)
+	Eigen::VectorXd qb;		 // Measured body positions (XYZRPY)
+	Eigen::VectorXd dqb;	 // Measured body velocitys (XYZRPY)
+	Eigen::VectorXd qb_ref;	 // Reference body positions (XYZRPY)
 	Eigen::VectorXd dqb_ref; // Reference body velocitys (XYZRPY)
 
 	Eigen::VectorXd qp;		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
@@ -924,7 +917,7 @@ private:
 	Eigen::VectorXd trajectory_q_des_;
 	bool trajectory_initialized_ = false;
 
-	std::vector<bool> leg_constraint;	 // Inclusion of leg in constraint matrix (1 = included, 0 = not)
+	std::vector<bool> leg_constraint; // Inclusion of leg in constraint matrix (1 = included, 0 = not)
 
 	Eigen::Vector3d cartesian_kp_;
 	Eigen::Vector3d cartesian_kd_;

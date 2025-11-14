@@ -97,7 +97,7 @@ def generate_launch_description():
             actions=[
                      raisim_node, 
                      control_node, 
-                    #  gait_control_node,
+                     gait_control_node,
                      ],
         ),
     ])

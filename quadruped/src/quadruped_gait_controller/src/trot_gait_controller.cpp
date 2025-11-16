@@ -453,8 +453,8 @@ private:
 	// double period2 = 3.0; // period in seconds
 	// double omega2 = 2.0 * M_PI / period2;
 
-	double forwardStepLength = 0.3;  // 0.375
-	double sideStepLength = 0.0; // 0.2
+	double forwardStepLength = 0.0;  // 0.375
+	double sideStepLength = 0.2; // 0.2
 	double stepHeight = 0.1;
 	double stepDuration = 1000.0;
 	double forwardWalkOffset[4] = {-forwardStepLength / 2.0, forwardStepLength / 2.0, - forwardStepLength / 2.0, forwardStepLength / 2.0};

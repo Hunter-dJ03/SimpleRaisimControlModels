@@ -33,8 +33,8 @@ public:
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
-		// auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
-		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {0.0, 0.0, 0.0});
+		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
+		// auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {0.0, 0.0, 0.0});
 		if (kp_param.size() == 3)
 		{
 			cartesian_kp_ << kp_param[0], kp_param[1], kp_param[2];
@@ -45,8 +45,8 @@ public:
 			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kp must have 3 entries. Using defaults.");
 		}
 
-		// auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
-		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {0.0, 0.0, 0.0});
+		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
+		// auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {0.0, 0.0, 0.0});
 
 		if (kd_param.size() == 3)
 		{

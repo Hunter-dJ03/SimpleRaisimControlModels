@@ -1,0 +1,4 @@
+float64[12] q
+---
+bool ok
+string message

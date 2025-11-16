@@ -2,10 +2,14 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include "quadruped_interfaces/msg/foot_states.hpp"
+#include "quadruped_interfaces/msg/full_body_control_command.hpp"
+#include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+#include <rclcpp/executors/single_threaded_executor.hpp>
 
 #include <Eigen/Dense>
 #include <Eigen/QR>
 #include <array>
+#include <algorithm>
 #include <cmath>
 
 class QuadrupedGaitController : public rclcpp::Node
@@ -28,6 +32,10 @@ public:
 		q = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 		qd = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
 
+		dqb_ref = Eigen::VectorXd::Zero(6);
+		dqp_ref = Eigen::VectorXd::Zero(24);
+		leg_constraint = Eigen::VectorXd::Zero(4);
+
 		// Fill variables based on intial configuration
 		for (int leg = 0; leg < 4; ++leg)
 		{
@@ -43,10 +51,8 @@ public:
 				leg);
 
 			footPosition[leg] = footPositionActual[leg];
-
 			footPositionInit[leg] = footPositionActual[leg];
-
-			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + forwardWalkOffset[leg], footPositionActual[leg][1] + sideWalkOffset[leg], footPositionActual[leg][2]), leg);
+			legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + forwardWalkOffset[leg] * 0.0, footPositionActual[leg][1] + sideWalkOffset[leg], footPositionActual[leg][2]), leg);
 
 			footPositionActual[leg] = forwardKinematics(
 				legJointPosition[leg],
@@ -58,8 +64,6 @@ public:
 
 			// std::cout << "Vector Init: " << footPositionInit[leg].transpose() << "        Vector Walk: " << footPositionWalk[leg].transpose() << std::endl;
 
-			
-
 			q[leg] = legJointPosition[leg];
 		}
 
@@ -70,6 +74,57 @@ public:
 
 		// Set up publisher for desired foot states messages
 		foot_state_publisher_ = this->create_publisher<quadruped_interfaces::msg::FootStates>("foot_states", 10);
+
+		full_body_command = this->create_publisher<quadruped_interfaces::msg::FullBodyControlCommand>("full_body_control_command", 10);
+
+		// Create the service client
+		set_gc_client_ = this->create_client<quadruped_interfaces::srv::SetGeneralizedCoordinate>(
+			"/set_generalized_coordinate");
+
+		// Block until the service is ready
+		while (!set_gc_client_->wait_for_service(std::chrono::seconds(1)))
+		{
+			if (!rclcpp::ok())
+			{
+				RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for /set_generalized_coordinate");
+				throw std::runtime_error("Service wait interrupted");
+			}
+			RCLCPP_INFO(this->get_logger(), "Waiting for /set_generalized_coordinate...");
+		}
+
+		// Build the 12 joint targets from the IK results you already computed in q[0..3]
+		// If you want to drive it from footPositionWalk explicitly, you can also do
+		// q[leg] = inverseKinematics(footPositionWalk[leg], leg);
+		auto req = std::make_shared<quadruped_interfaces::srv::SetGeneralizedCoordinate::Request>();
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			req->q[leg * 3 + 0] = q[leg][0];
+			req->q[leg * 3 + 1] = q[leg][1];
+			req->q[leg * 3 + 2] = q[leg][2];
+		}
+
+		// Send request and block until the response arrives
+		auto future = set_gc_client_->async_send_request(req);
+
+		// Use a temporary executor; do NOT call shared_from_this() in a ctor.
+		rclcpp::executors::SingleThreadedExecutor exec;
+		exec.add_node(this->get_node_base_interface());
+		auto ret = exec.spin_until_future_complete(future, std::chrono::seconds(5));
+
+		if (ret != rclcpp::FutureReturnCode::SUCCESS)
+		{
+			RCLCPP_ERROR(this->get_logger(), "Service call to /set_generalized_coordinate did not complete");
+			throw std::runtime_error("Initial joint teleport failed");
+		}
+
+		const auto res = future.get();
+		if (!res->ok)
+		{
+			RCLCPP_ERROR(this->get_logger(), "Service returned error: %s", res->message.c_str());
+			throw std::runtime_error("Initial joint teleport rejected by server");
+		}
+
+		RCLCPP_INFO(this->get_logger(), "Initial joint teleport applied: %s", res->message.c_str());
 
 		// Create timer to update the control commands
 		timer_ = rclcpp::create_timer(
@@ -104,141 +159,87 @@ private:
 
 		// return;
 		// Create control effort message
-		quadruped_interfaces::msg::FootStates foot_state_msg;
-		foot_state_msg.header.stamp = stamp;
-		foot_state_msg.desired_positions.resize(4);
-		foot_state_msg.desired_velocities.resize(4);
+		// quadruped_interfaces::msg::FootStates foot_state_msg;
+		// foot_state_msg.header.stamp = stamp;
+		// foot_state_msg.desired_positions.resize(4);
+		// foot_state_msg.desired_velocities.resize(4);
 
 		// Create endpoint message
-		quadruped_interfaces::msg::Endpoint endpoint_msg;
-		endpoint_msg.header.stamp = stamp;
+		// quadruped_interfaces::msg::Endpoint endpoint_msg;
+		// endpoint_msg.header.stamp = stamp;
 
-		// const double t = now_ros.seconds();
+		quadruped_interfaces::msg::FullBodyControlCommand command_msg;
+		command_msg.header.stamp = stamp;
+		command_msg.dqb_ref.resize(6);
+		command_msg.dqp_ref.resize(24);
+		command_msg.leg_constraint.resize(4);
 
-		// Temporary velocities for foot
-		// double vel_x = A0 * cos(omega0 * t);  // Desired velocity in x direction
-		// double vel_y = -A1 * cos(omega1 * t); // Desired velocity in y direction
-		// double vel_z = A2 * sin(omega2 * t);  // Desired velocity in z direction
+		dqb_ref.setZero();
+		dqp_ref.setZero();
+		leg_constraint.setConstant(1.0);
 
-		// double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
-		// double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
-		// double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
+		dqb_ref[0] = forwardStepLength / (stepDuration) * 1000.0;
 
-		// Desired Velocity vector paraeter
-		Eigen::VectorXd desired_velocity(3);
-		Eigen::VectorXd desired_position(3);
-		desired_velocity.setZero();
-
-		// RCLCPP_INFO(this->get_logger(), "Step Timers: %f, %f, %f, %f", stepTimer[0], stepTimer[1], stepTimer[2], stepTimer[3]);
+		// dqb_ref[0] = A1 * cos(omega1 * (now_ros.seconds() - 2.0));
 
 		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
 		for (size_t leg = 0; leg < 4; ++leg)
 		{
+			if (now_ros.seconds() < 2.0) {
+				continue;
+			}
+
+
 			if (stepTimer[leg] >= stepDuration)
 			{
 				stepTimer[leg] = 0;
-				// RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %d", leg);
+				// RCLCPP_INFO(this->get_logger(), "Resetting step timer for leg %ld", leg);
 			}
-			
-			if (stepTimer[leg] < stepDuration/4) // Swing phase
+
+			if (stepTimer[leg] < stepDuration / 4) // Swing phase
 			{
-				desired_position(0) = footPositionInit[leg](0) + forwardStepLength * (a[6]*pow(stepTimer[leg],6) + a[5]*pow(stepTimer[leg],5) + a[4]*pow(stepTimer[leg],4) + a[3]*pow(stepTimer[leg],3) + a[2]*pow(stepTimer[leg],2) + a[1]*stepTimer[leg] + a[0]);
-				desired_position(1) = footPositionInit[leg](1) + sideStepLength * (a[6]*pow(stepTimer[leg],6) + a[5]*pow(stepTimer[leg],5) + a[4]*pow(stepTimer[leg],4) + a[3]*pow(stepTimer[leg],3) + a[2]*pow(stepTimer[leg],2) + a[1]*stepTimer[leg] + a[0]);
-				desired_position(2) = footPositionInit[leg](2) + stepHeight * (b[6]*pow(stepTimer[leg],6) + b[5]*pow(stepTimer[leg],5) + b[4]*pow(stepTimer[leg],4) + b[3]*pow(stepTimer[leg],3) + b[2]*pow(stepTimer[leg],2) + b[1]*stepTimer[leg] + b[0]);
+				leg_constraint[leg] = 0.0;
+				const double swing_duration = stepDuration / 4.0;
+				double swing_phase = stepTimer[leg] / swing_duration;
+				swing_phase = std::clamp(swing_phase, 0.0, 1.0);
 
-				desired_velocity(0) = forwardStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				desired_velocity(1) = sideStepLength * (6*a[6]*pow(stepTimer[leg],5) + 5*a[5]*pow(stepTimer[leg],4) + 4*a[4]*pow(stepTimer[leg],3) + 3*a[3]*pow(stepTimer[leg],2) + 2*a[2]*stepTimer[leg] + a[1]);
-				desired_velocity(2) = stepHeight * (6*b[6]*pow(stepTimer[leg],5) + 5*b[5]*pow(stepTimer[leg],4) + 4*b[4]*pow(stepTimer[leg],3) + 3*b[3]*pow(stepTimer[leg],2) + 2*b[2]*stepTimer[leg] + b[1]);
+				const double smooth_step_prime = 6.0 * swing_phase * (1.0 - swing_phase);
+				const double dz_dt = (stepHeight * M_PI * std::sin(2.0 * M_PI * swing_phase)) / swing_duration;
+
+				dqp_ref[leg * 6 + 0] = (forwardStepLength * smooth_step_prime) / swing_duration;
+				dqp_ref[leg * 6 + 1] = (sideStepLength * smooth_step_prime) / swing_duration;
+				dqp_ref[leg * 6 + 2] = dz_dt;
 			}
-			else // Stance phase
-			{
-				desired_position(0) = footPositionInit[leg](0) + forwardStepLength * (1.0/2.0 - ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))); 
-				desired_position(1) = footPositionInit[leg](1) + sideStepLength * (1.0/2.0 - ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))); 
-				desired_position(2) = footPositionInit[leg](2);
-
-				desired_velocity(0) = - (4.0 * forwardStepLength) / (3.0 * stepDuration);
-				desired_velocity(1) = - (4.0 * sideStepLength) / (3.0 * stepDuration);
-				desired_velocity(2) = 0;
-			}
-
-			// if (stepTimer[leg] < stepDuration/4) // Swing phase
-			// {
-			// 	desired_position(0) = footPositionInit[leg](0) + forwardStepLength * ((4*stepTimer[leg])/(stepDuration)) - forwardStepLength/2;
-			// 	desired_position(1) = footPositionInit[leg](1);
-			// 	desired_position(2) = footPositionInit[leg](2) + stepHeight * sin(M_PI * (4*stepTimer[leg])/(stepDuration));
-
-			// 	desired_velocity(0) = forwardStepLength * (4/(stepDuration));
-			// 	desired_velocity(1) = 0;
-			// 	desired_velocity(2) = 4 * M_PI * stepHeight / stepDuration * cos(M_PI * (4*stepTimer[leg])/(stepDuration));
-			// }
-			// else // Stance phase
-			// {
-			// 	desired_position(0) = footPositionInit[leg](0) + forwardStepLength * (1- ((stepTimer[leg] - stepDuration/4) / (stepDuration - stepDuration/4))) - forwardStepLength/2; 
-			// 	desired_position(1) = footPositionInit[leg](1);
-			// 	desired_position(2) = footPositionInit[leg](2);
-
-			// 	desired_velocity(0) = -forwardStepLength * (1/(stepDuration - 1000));
-			// 	desired_velocity(1) = 0;
-			// 	desired_velocity(2) = 0;
-			// }
-
-
-			// Set desired velocity based on leg index
-			// if (leg == 0)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
-			// else if (leg == 1)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
-			// else if (leg == 2)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
-			// else if (leg == 3)
-			// {
-			// 	desired_velocity << vel_x, vel_y, vel_z;
-			// 	desired_position << footPositionInit[leg][0] + d_pos_x, footPositionInit[leg][1] + d_pos_y, footPositionInit[leg][2] + d_pos_z;
-			// }
 
 			// Wait for 1 second before walking
-			if (now_ros.seconds() < 2.0)
-			{
-				desired_position(0) = footPositionWalk[leg](0);
-				desired_position(1) = footPositionWalk[leg](1);
-				desired_position(2) = footPositionWalk[leg](2);
-				desired_velocity(0) = 0;
-				desired_velocity(1) = 0;
-				desired_velocity(2) = 0;
-			} else {
-				stepTimer[leg] += control_time_step_ms;
-			};
-
-			// if (once && now_ros.seconds() >= 1.0) {
-			// 	RCLCPP_INFO(this->get_logger(), "Leg %ld, Time %f, Desired Position: %f, %f, %f", leg, stepTimer[leg] ,desired_position(0), desired_position(1), desired_position(2));
-			// 	// RCLCPP_INFO(this->get_logger(), "Leg %d Desired Velocity: %f, %f, %f", leg, desired_velocity(0), desired_velocity(1), desired_velocity(2));
+			// if (now_ros.seconds() >= 2.0)
+			// {
+			stepTimer[leg] += control_time_step_ms;
 			// }
-
-			// stepTimer[leg] += control_time_step_ms;
-
-			foot_state_msg.desired_positions[leg].x = desired_position(0);
-			foot_state_msg.desired_positions[leg].y = desired_position(1);
-			foot_state_msg.desired_positions[leg].z = desired_position(2);
-
-			foot_state_msg.desired_velocities[leg].x = desired_velocity(0) * 1000.0; // Convert to m/s from mm/s
-			foot_state_msg.desired_velocities[leg].y = desired_velocity(1) * 1000.0;
-			foot_state_msg.desired_velocities[leg].z = desired_velocity(2) * 1000.0;
 		}
 
-		if (now_ros.seconds() >= 2.0) {
-			once = false;
+		if (now_ros.seconds() < 2.0)
+		{
+			dqb_ref.setZero();
+			dqp_ref.setZero();
 		}
 
-		foot_state_publisher_->publish(foot_state_msg);
+		for (size_t i = 0; i < 6; ++i)
+		{
+			command_msg.dqb_ref[i] = dqb_ref[i];
+		}
+
+		for (size_t i = 0; i < 24; ++i)
+		{
+			command_msg.dqp_ref[i] = dqp_ref[i] * 1000; // Convert to m/s from m/ms
+		}
+
+		for (size_t i = 0; i < 4; ++i)
+		{
+			command_msg.leg_constraint[i] = leg_constraint[i]; // Convert to m/s from m/ms
+		}
+
+		full_body_command->publish(command_msg);
 	}
 
 	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
@@ -415,6 +416,8 @@ private:
 	// Declaration for ROS2 subscriptions and publishers
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::FootStates>::SharedPtr foot_state_publisher_;
+	rclcpp::Publisher<quadruped_interfaces::msg::FullBodyControlCommand>::SharedPtr full_body_command;
+	rclcpp::Client<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_client_;
 
 	rclcpp::TimerBase::SharedPtr timer_;
 
@@ -431,6 +434,10 @@ private:
 	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
 	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
 
+	Eigen::VectorXd dqb_ref;		// Body velocity (XYZRPY)
+	Eigen::VectorXd dqp_ref;		// Desired foot velocity
+	Eigen::VectorXd leg_constraint; // Body velocity (XYZRPY)
+
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero(3);
 
 	double gravity = -9.81;
@@ -439,31 +446,27 @@ private:
 	int dof = 12;
 
 	// // Waveform A parameters (x)
-	// double A0 = 0.0;	  // amplitude
-	// double period0 = 6.0; // period in seconds
-	// double omega0 = 2.0 * M_PI / period0;
+	double A0 = 0.1;	  // amplitude
+	double period0 = 3.0; // period in seconds
+	double omega0 = 2.0 * M_PI / period0;
 
-	// // Waveform B parameters (y)
-	// double A1 = 0.0;	  // amplitude
-	// double period1 = 3.0; // period in seconds
-	// double omega1 = 2.0 * M_PI / period1;
+	// Waveform B parameters (y)
+	double A1 = 0.3;	  // amplitude
+	double period1 = 3.0; // period in seconds
+	double omega1 = 2.0 * M_PI / period1;
 
-	// // Waveform C parameters (z)
-	// double A2 = 0.0;	  // amplitude
-	// double period2 = 3.0; // period in seconds
-	// double omega2 = 2.0 * M_PI / period2;
+	// Waveform C parameters (z)
+	double A2 = 0.0;	  // amplitude
+	double period2 = 3.0; // period in seconds
+	double omega2 = 2.0 * M_PI / period2;
 
-	double forwardStepLength = 0.36;  // 0.375
-	double sideStepLength = 0.0; // 0.2
-	double stepHeight = 0.15;
-	double stepDuration = 1200.0;
+	double forwardStepLength = 0.3; // 0.375
+	double sideStepLength = 0.0;	// 0.2
+	double stepHeight = 0.1;
+	double stepDuration = 1000.0;
 	double forwardWalkOffset[4] = {-forwardStepLength / 2.0, -forwardStepLength / 6.0, forwardStepLength / 2.0, forwardStepLength / 6.0};
 	double sideWalkOffset[4] = {-sideStepLength / 2.0, -sideStepLength / 6.0, sideStepLength / 2.0, sideStepLength / 6.0};
-	double stepTimer[4] = {stepDuration*(0.0/4.0), stepDuration*(3.0/4.0), stepDuration*(1.0/4.0), stepDuration*(2.0/4.0)};
-
-	double T = stepDuration; // Convert ms to seconds for polynomial coeffs
-	std::vector<double> a = {-1.0 / 2.0, -1.0 / T, 0, 800.0 / pow(T, 3), -4800.0 / pow(T, 4), 7680.0 / pow(T, 5), 0};
-	std::vector<double> b = {0, 0, 0, 4096.0 / pow(T, 3), -49152.0 / pow(T, 4), 196608.0 / pow(T, 5), -262144.0 / pow(T, 6)};
+	double stepTimer[4] = {stepDuration * (0.0 / 4.0), stepDuration * (3.0 / 4.0), stepDuration * (1.0 / 4.0), stepDuration * (2.0 / 4.0)};
 
 	bool once = true;
 };

@@ -1,11 +1,27 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include "quadruped_interfaces/msg/foot_states.hpp"
+#include "quadruped_interfaces/msg/full_body_control_command.hpp"
+#include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+
 #include <Eigen/Dense>
 #include <Eigen/QR>
+#include <Eigen/Geometry>
 #include <array>
 #include <cmath>
+
+struct LegKinematics
+{
+	Eigen::Vector3d r1;
+	Eigen::Vector3d r2;
+	Eigen::Vector3d r3;
+	Eigen::Vector3d rp;
+	Eigen::Vector3d z1;
+	Eigen::Vector3d z2;
+	Eigen::Vector3d z3;
+};
 
 class QuadrupedLegController : public rclcpp::Node
 {
@@ -17,116 +33,141 @@ public:
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
-		// Initialise variables for leg joint positions, velocities, and foot positions
-		legJointPosition.resize(4);
-		legJointVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		footPositionActual = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		q = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		qd = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		desired_footPosition = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-		desired_footVelocity = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-
-		footPositionWalk = std::vector<Eigen::Vector3d>(4, Eigen::Vector3d::Zero());
-
-		// Fill variables based on intial configuration
-		for (int leg = 0; leg < 4; ++leg)
+		// auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
+		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {0.0, 0.0, 0.0});
+		if (kp_param.size() == 3)
 		{
-
-			legJointPosition[leg] = Eigen::Vector3d(
-				init_pos[leg * 3 + 0],
-				init_pos[leg * 3 + 1],
-				init_pos[leg * 3 + 2]);
-
-			// Compute foot position from FK
-			footPositionActual[leg] = forwardKinematics(
-				legJointPosition[leg],
-				leg);
-
-			footPosition[leg] = footPositionActual[leg];
-
-			// legJointPosition[leg] = inverseKinematics(Eigen::Vector3d(footPositionActual[leg][0] + walkOffset[leg], footPositionActual[leg][1], footPositionActual[leg][2]), leg);
-
-			// footPositionActual[leg] = forwardKinematics(
-			// 	legJointPosition[leg],
-			// 	leg);
-
-			// std::cout << "Vector: " << footPositionActual[leg].transpose() << std::endl;
-
-			desired_footPosition[leg] = footPositionActual[leg];
-			desired_footVelocity[leg] = zero3;
-
-			q[leg] = legJointPosition[leg];
+			cartesian_kp_ << kp_param[0], kp_param[1], kp_param[2];
+		}
+		else
+		{
+			cartesian_kp_ << 5000.0, 5000.0, 7000.0;
+			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kp must have 3 entries. Using defaults.");
 		}
 
-			I[0] <<	190521.10058e-6, 0.0, 0.0,
-				0.0, 588124.01325e-6, 0.0,
-				0.0, 0.0, 769095.07872e-6;
-			I[1] <<	3880.429e-6, -0.33101e-6, -0.54295e-6,
-				-0.33101e-6, 1737.42582e-6, -2.41837e-6,
-				-0.54295e-6, -2.41837e-6, 3527.932e-6;
-			I[2] <<	1548.5157e-6, -2160.22133e-6, 174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
-				174.745e-6, 18.95697e-6, 43277.27545e-6;
-			I[3] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			I[4] <<	3880.429e-6, -0.33101e-6, 0.54295e-6,
-				-0.33101e-6, 1737.42582e-6, 2.41837e-6,
-				0.54295e-6, 2.41837e-6, 3527.932e-6;
-			I[5] <<	1548.5157e-6, -2160.22133e-6, 174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
-				174.745e-6, 18.95697e-6, 43277.27545e-6;
-			I[6] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			I[7] <<	3880.429e-6, 0.33101e-6, 0.54295e-6,
-				0.33101e-6, 1737.42582e-6, -2.41837e-6,
-				0.54295e-6, -2.41837e-6, 3527.932e-6;
-			I[8] <<	1548.5157e-6, -2160.22133e-6, -174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
-				-174.745e-6, -18.95697e-6, 43277.27545e-6;
-			I[9] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			I[10] << 3880.429e-6, 0.33101e-6, -0.54295e-6,
-				0.33101e-6, 1737.42582e-6, 2.41837e-6,
-				-0.54295e-6, 2.41837e-6, 3527.932e-6;
-			I[11] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
-				-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
-				-174.745e-6, -18.95697e-6, 43277.27545e-6;
-			I[12] <<	6651.29948e-6, -86.04365e-6, 0.14142e-6,
-				-86.04365e-6, 64.86598e-6, 0.99056e-6,
-				0.14142e-6, 0.99056e-6, 6643.89297e-6;
-			
-			pcom[0] << 0.0e-3, 0.0e-3, 25.086e-3 ;
-			pcom[1] << 0.00027e-3, 12.11336e-3, -0.78754e-3 ;
-			pcom[2] << 29.30799e-3, 1.23559e-3, -3.87239e-3 ;
-			pcom[3] << -6.46276e-3, -165.43468e-3, 0.24478e-3 ;
-			pcom[4] << 0.00027e-3, 12.11336e-3, 0.78754e-3 ;
-			pcom[5] << 29.30799e-3, 1.23559e-3, -3.87239e-3 ;
-			pcom[6] << -6.46276e-3, -165.43468e-3, 0.24478e-3 ;
-			pcom[7] << 0.00027e-3, -12.11336e-3, 0.78754e-3 ;
-			pcom[8] << 29.30799e-3, 1.23559e-3, 3.87239e-3 ;
-			pcom[9] << -6.46276e-3, -165.43468e-3, -0.24478e-3 ;
-			pcom[10] << 0.00027e-3, -12.11336e-3, -0.78754e-3 ;
-			pcom[11] << 29.30799e-3, 1.23559e-3, 3.87239e-3 ;
-			pcom[12] << -6.46276e-3, -165.43468e-3, -0.24478e-3 ;
+		// auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
+		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {0.0, 0.0, 0.0});
+
+		if (kd_param.size() == 3)
+		{
+			cartesian_kd_ << kd_param[0], kd_param[1], kd_param[2];
+		}
+		else
+		{
+			cartesian_kd_ << 20.0, 20.0, 35.0;
+			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kd must have 3 entries. Using defaults.");
+		}
+
+		qb = Eigen::VectorXd::Zero(6);		// Measured body positions (XYZRPY)
+		dqb = Eigen::VectorXd::Zero(6);		// Measured body velocitys (XYZRPY)
+		qb_ref = Eigen::VectorXd::Zero(6);	// Reference body positions (XYZRPY)
+		dqb_ref = Eigen::VectorXd::Zero(6); // Reference body velocitys (XYZRPY)
+
+		qp = Eigen::VectorXd::Zero(12);		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+		dqp = Eigen::VectorXd::Zero(12);	 // Measured Paw velocitys (dp1 XYZRPY, dp2 XYZRPY, ...)
+		qp_ref = Eigen::VectorXd::Zero(12);	 // Reference Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+		dqp_ref = Eigen::VectorXd::Zero(24); // Reference Paw velocitys (dp1 XYZRPY, dp2 XYZRPY, ...)
+
+		qJ = Eigen::VectorXd::Zero(12);		 // Measured Joint positions (j1, j2, j3, j4, ...)
+		dqJ = Eigen::VectorXd::Zero(12);	 // Measured Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		qJ_ref = Eigen::VectorXd::Zero(12);	 // Reference Joint positions (j1, j2, j3, j4, ...)
+		dqJ_ref = Eigen::VectorXd::Zero(12); // Reference Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+
+		qJ_prev = Eigen::VectorXd::Zero(12);	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		dqJ_prev = Eigen::VectorXd::Zero(12);	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		qJ_ref_prev = Eigen::VectorXd::Zero(12);  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+		dqJ_ref_prev = Eigen::VectorXd::Zero(12); // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+
+		qT_comp = Eigen::VectorXd::Zero(12); // Measured Joint positions (j1, j2, j3, j4, ...)
+
+		leg_constraint.resize(4, true);
+
+		latest_odom_.pose.pose.orientation.w = 1.0;
+		latest_odom_.header.frame_id = "odom";
+		latest_odom_.child_frame_id = "base_link";
+
+		qJ = Eigen::Map<Eigen::VectorXd>(init_pos.data(), init_pos.size()); // Assign initial joint positions from parameter
+		qJ_ref = qJ;
+		qJ_prev = qJ;
+		qJ_ref_prev = qJ; // Set reference and previous values to initial positions
+		trajectory_q_des_ = qJ;
+
+		qp = fullForwardKinematics();
+		qp_ref = qp;
+
+		I[0] << 190521.10058e-6, 0.0, 0.0,
+			0.0, 588124.01325e-6, 0.0,
+			0.0, 0.0, 769095.07872e-6;
+		I[1] << 3880.429e-6, -0.33101e-6, -0.54295e-6,
+			-0.33101e-6, 1737.42582e-6, -2.41837e-6,
+			-0.54295e-6, -2.41837e-6, 3527.932e-6;
+		I[2] << 1548.5157e-6, -2160.22133e-6, 174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
+			174.745e-6, 18.95697e-6, 43277.27545e-6;
+		I[3] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+		I[4] << 3880.429e-6, -0.33101e-6, 0.54295e-6,
+			-0.33101e-6, 1737.42582e-6, 2.41837e-6,
+			0.54295e-6, 2.41837e-6, 3527.932e-6;
+		I[5] << 1548.5157e-6, -2160.22133e-6, 174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, 18.95697e-6,
+			174.745e-6, 18.95697e-6, 43277.27545e-6;
+		I[6] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+		I[7] << 3880.429e-6, 0.33101e-6, 0.54295e-6,
+			0.33101e-6, 1737.42582e-6, -2.41837e-6,
+			0.54295e-6, -2.41837e-6, 3527.932e-6;
+		I[8] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
+			-174.745e-6, -18.95697e-6, 43277.27545e-6;
+		I[9] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+		I[10] << 3880.429e-6, 0.33101e-6, -0.54295e-6,
+			0.33101e-6, 1737.42582e-6, 2.41837e-6,
+			-0.54295e-6, 2.41837e-6, 3527.932e-6;
+		I[11] << 1548.5157e-6, -2160.22133e-6, -174.745e-6,
+			-2160.22133e-6, 43591.04282e-6, -18.95697e-6,
+			-174.745e-6, -18.95697e-6, 43277.27545e-6;
+		I[12] << 6651.29948e-6, -86.04365e-6, 0.14142e-6,
+			-86.04365e-6, 64.86598e-6, 0.99056e-6,
+			0.14142e-6, 0.99056e-6, 6643.89297e-6;
+
+		pcom[0] << 0.0e-3, 0.0e-3, 25.086e-3;
+		pcom[1] << 0.00027e-3, 12.11336e-3, -0.78754e-3;
+		pcom[2] << 29.30799e-3, 1.23559e-3, -3.87239e-3;
+		pcom[3] << -6.46276e-3, -165.43468e-3, 0.24478e-3;
+		pcom[4] << 0.00027e-3, 12.11336e-3, 0.78754e-3;
+		pcom[5] << 29.30799e-3, 1.23559e-3, -3.87239e-3;
+		pcom[6] << -6.46276e-3, -165.43468e-3, 0.24478e-3;
+		pcom[7] << 0.00027e-3, -12.11336e-3, 0.78754e-3;
+		pcom[8] << 29.30799e-3, 1.23559e-3, 3.87239e-3;
+		pcom[9] << -6.46276e-3, -165.43468e-3, -0.24478e-3;
+		pcom[10] << 0.00027e-3, -12.11336e-3, -0.78754e-3;
+		pcom[11] << 29.30799e-3, 1.23559e-3, 3.87239e-3;
+		pcom[12] << -6.46276e-3, -165.43468e-3, -0.24478e-3;
 
 		// Set up subscription to encoder feedback for joint states
 		joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
 			"joint_states", 10,
 			std::bind(&QuadrupedLegController::jointStateCallback, this, std::placeholders::_1));
 
-		foot_state_sub_ = this->create_subscription<quadruped_interfaces::msg::FootStates>(
-			"foot_states", 10,
-			std::bind(&QuadrupedLegController::footStateCallback, this, std::placeholders::_1));
+		odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+			"odom", 10,
+			std::bind(&QuadrupedLegController::odometryCallback, this, std::placeholders::_1));
+
+		full_body_command_sub_ = this->create_subscription<quadruped_interfaces::msg::FullBodyControlCommand>(
+			"full_body_control_command", 10,
+			std::bind(&QuadrupedLegController::fullBodyCommandCallback, this, std::placeholders::_1));
 
 		// Set up publishers for desired control effort
 		desired_control_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_desired_control", 10);
 
-		// Set up publisher for endpoint messages
+		// Set up publishers for endpoint messages
 		endpoint_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint", 10);
+		endpoint_velocity_publisher_ = this->create_publisher<quadruped_interfaces::msg::Endpoint>("endpoint_velocity", 10);
 
 		// Create timer to update the control commands
 		timer_ = rclcpp::create_timer(
@@ -135,6 +176,10 @@ public:
 			this->get_clock(),
 			std::chrono::microseconds((int)(control_time_step_ms * 1000)),
 			std::bind(&QuadrupedLegController::controlCommands, this));
+
+		set_gc_srv_ = this->create_service<quadruped_interfaces::srv::SetGeneralizedCoordinate>(
+			"set_generalized_coordinate",
+			std::bind(&QuadrupedLegController::setGcCallback, this, std::placeholders::_1, std::placeholders::_2));
 
 		// Feedback for controller start
 		RCLCPP_INFO(this->get_logger(), "Quadruped Controller Node started");
@@ -167,149 +212,164 @@ private:
 		control_effort.velocity.resize(dof);
 		control_effort.effort.resize(dof);
 
+		qb[0] = latest_odom_.pose.pose.position.x;
+		qb[1] = latest_odom_.pose.pose.position.y;
+		qb[2] = latest_odom_.pose.pose.position.z;
+		
+		Eigen::Quaterniond q_body(
+			latest_odom_.pose.pose.orientation.w,
+			latest_odom_.pose.pose.orientation.x,
+			latest_odom_.pose.pose.orientation.y,
+			latest_odom_.pose.pose.orientation.z);
+		q_body.normalize();
+		const Eigen::Vector3d rpy = q_body.toRotationMatrix().eulerAngles(0, 1, 2);
+		qb[3] = rpy[0];
+		qb[4] = rpy[1];
+		qb[5] = rpy[2];
+
+		dqb[0] = latest_odom_.twist.twist.linear.x;
+		dqb[1] = latest_odom_.twist.twist.linear.y;
+		dqb[2] = latest_odom_.twist.twist.linear.z;
+		dqb[3] = latest_odom_.twist.twist.angular.x;
+		dqb[4] = latest_odom_.twist.twist.angular.y;
+		dqb[5] = latest_odom_.twist.twist.angular.z;
+
 		// Create endpoint message
 		quadruped_interfaces::msg::Endpoint endpoint_msg;
 		endpoint_msg.header.stamp = stamp;
 
-		// const double t = now_ros.seconds();
+		quadruped_interfaces::msg::Endpoint endpoint_velocity_msg;
+		endpoint_velocity_msg.header.stamp = stamp;
 
+		qp = fullForwardKinematics();
 
-		// Temporary velocities for foot
-		// double vel_x = A0 * cos(omega0 * t); // Desired velocity in x direction
-		// double vel_y = - A1 * cos(omega1 * t); // Desired velocity in y direction
-		// double vel_z = A2 * sin(omega2 * t); // Desired velocity in z direction
+		std::array<Eigen::Matrix3d, 4> leg_jacobians_linear;
 
-		// double d_pos_x = A0 / omega0 * sin(omega0 * t); // Desired position in x direction
-		// double d_pos_y = A1 / omega1 * cos(omega1 * t); // Desired position in y direction
-		// double d_pos_z = A2 / omega2 * sin(omega2 * t); // Desired position in z direction
-
-
-		// Desired Velocity vector paraeter
-		Eigen::VectorXd desired_velocity(3);
-		Eigen::VectorXd desired_position(3);
-		// desired_velocity.setZero();
-
-		// For each leg, calculate the desired joint states based on the current joint states and desired trajectory
-		for (size_t leg = 0; leg < 4; ++leg)
+		for (int leg = 0; leg < 4; ++leg)
 		{
+			const int idx = 3 * leg;
+			const Eigen::Matrix<double, 6, 3> J_leg = computeJacobian(qJ.segment<3>(idx), leg);
+			leg_jacobians_linear[leg] = J_leg.topRows(3);
+			dqp.segment<3>(idx).noalias() = leg_jacobians_linear[leg] * dqJ.segment<3>(idx);
+			dqp.segment<3>(idx) += dqb_ref.segment<3>(0);
+		}
 
-			desired_position = desired_footPosition[leg];
-			desired_velocity = desired_footVelocity[leg];
-
-			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Position: %f, %f, %f", leg, desired_position(0), desired_position(1), desired_position(2));
-			// RCLCPP_INFO(this->get_logger(), "Leg %ld, Desired Velocity: %f, %f, %f", leg, desired_velocity(0), desired_velocity(1), desired_velocity(2));	
-
-			footPosition[leg] = desired_position;
-
-			// Calculate the gravity and corcent torques
-			Eigen::VectorXd NE_Gravity_torques = NE_Dynamics(q[leg], zero3, zero3, -gravity, leg);
-			Eigen::VectorXd NE_Ccorcent_torques = NE_Dynamics(q[leg], qd[leg], zero3, 0, leg);
-
-			// Calculate leg forward kinematics
-			Eigen::Vector3d fk = forwardKinematics(q[leg], leg);
-			footPositionActual[leg] = fk;
-
-			// Use calculated jacobian and pseudo-inverse to calculate joint velocities for the leg
-			Eigen::MatrixXd jacobian = computeJacobian(q[leg], leg);
-			auto jacobianPseudoInverse = jacobian.completeOrthogonalDecomposition().pseudoInverse();
-			legJointVelocity[leg] = jacobianPseudoInverse * desired_velocity;
-
-			legJointPosition[leg] = inverseKinematics(desired_position, leg);
-
-			// Populate control effort message for the leg
-			for (int joint = 0; joint < 3; ++joint)
+		const double dt = control_time_step_ms / 1000.0;
+		if (dqp_ref.size() == 24 && qp_ref.size() == 12)
+		{
+			for (int leg = 0; leg < 4; ++leg)
 			{
-				control_effort.position[leg * 3 + joint] = legJointPosition[leg](joint);
-				control_effort.velocity[leg * 3 + joint] = legJointVelocity[leg](joint);
-				// control_effort.position[leg * 3 + joint] = init_pos[leg * 3 + joint]; // Set desired position to initial position
-				// control_effort.velocity[leg * 3 + joint] = 0;
-				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint] + NE_Ccorcent_torques[joint];
-				control_effort.effort[leg * 3 + joint] = NE_Gravity_torques[joint];
+				const int qp_idx = 3 * leg;
+				const int dqp_idx = 6 * leg;
 
+				qp_ref.segment<3>(qp_idx) -= dqb_ref.segment<3>(0) * dt;
+				qp_ref.segment<3>(qp_idx) += dqp_ref.segment<3>(dqp_idx) * dt;
 			}
+		}
+
+		Eigen::VectorXd qT_ref = Eigen::VectorXd::Zero(12);
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			const int qp_idx = 3 * leg;
+			const int dqp_idx = 6 * leg;
+			const Eigen::Vector3d pos_error = qp_ref.segment<3>(qp_idx) - qp.segment<3>(qp_idx);
+			const Eigen::Vector3d vel_error = dqp_ref.segment<3>(dqp_idx) - dqp.segment<3>(qp_idx);
+			const Eigen::Vector3d force = cartesian_kp_.cwiseProduct(pos_error) + cartesian_kd_.cwiseProduct(vel_error);
+			qT_ref.segment<3>(qp_idx).noalias() = leg_jacobians_linear[leg].transpose() * force;
+		}
+
+		qT_comp = fullNEDynamics();
+
+		for (int i = 0; i < 12; ++i)
+		{
+			control_effort.position[i] = 0.0;
+			control_effort.velocity[i] = 0.0;
+			control_effort.effort[i] = qT_ref(i) + qT_comp(i);
 		}
 
 		// Publish the control effort for the desired joint states
 		desired_control_pub_->publish(control_effort);
 
-		// Fill in desired position
-		endpoint_msg.desired.x = footPosition[0].x();
-		endpoint_msg.desired.y = footPosition[0].y();
-		endpoint_msg.desired.z = footPosition[0].z();
+		if (qp_ref.size() >= 3 && qp.size() >= 3)
+		{
+			// Fill in desired position
+			endpoint_msg.desired.x = qp_ref[0];
+			endpoint_msg.desired.y = qp_ref[1];
+			endpoint_msg.desired.z = qp_ref[2];
 
-		// Fill in actual position
-		endpoint_msg.actual.x = footPositionActual[0].x();
-		endpoint_msg.actual.y = footPositionActual[0].y();
-		endpoint_msg.actual.z = footPositionActual[0].z();
+			// Fill in actual position
+			endpoint_msg.actual.x = qp[0];
+			endpoint_msg.actual.y = qp[1];
+			endpoint_msg.actual.z = qp[2];
 
-		endpoint_msg.error.x = footPosition[0].x() - footPositionActual[0].x();
-		endpoint_msg.error.y = footPosition[0].y() - footPositionActual[0].y();
-		endpoint_msg.error.z = footPosition[0].z() - footPositionActual[0].z();
+			endpoint_msg.error.x = endpoint_msg.desired.x - endpoint_msg.actual.x;
+			endpoint_msg.error.y = endpoint_msg.desired.y - endpoint_msg.actual.y;
+			endpoint_msg.error.z = endpoint_msg.desired.z - endpoint_msg.actual.z;
+		}
+
+		if (dqp_ref.size() >= 3 && dqp.size() >= 3)
+		{
+			endpoint_velocity_msg.desired.x = dqp_ref[0];
+			endpoint_velocity_msg.desired.y = dqp_ref[1];
+			endpoint_velocity_msg.desired.z = dqp_ref[2];
+
+			endpoint_velocity_msg.actual.x = dqp[0];
+			endpoint_velocity_msg.actual.y = dqp[1];
+			endpoint_velocity_msg.actual.z = dqp[2];
+
+			endpoint_velocity_msg.error.x = endpoint_velocity_msg.desired.x - endpoint_velocity_msg.actual.x;
+			endpoint_velocity_msg.error.y = endpoint_velocity_msg.desired.y - endpoint_velocity_msg.actual.y;
+			endpoint_velocity_msg.error.z = endpoint_velocity_msg.desired.z - endpoint_velocity_msg.actual.z;
+		}
 
 		endpoint_publisher_->publish(endpoint_msg);
+		endpoint_velocity_publisher_->publish(endpoint_velocity_msg);
 	}
 
 	/*
 	 * Callback that updates the current joint states based on encoder feedback.
 	 * Receives current joint states and saves the most recent to internal variables.
-	 * 
+	 *
 	 * @param msg The message containing the joint states.
 	 */
 	void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg)
 	{
-		// Check if the message has the correct size
-		// if (msg->position.size() != 12 || msg->velocity.size() != 12)
-		// {
-		// 	RCLCPP_ERROR(this->get_logger(), "Received joint state message with incorrect size");
-		// 	return;
-		// }
 
-		// Unpack joint states from the message
-		for (size_t leg = 0; leg < 4; ++leg)
-		{
-			q[leg] = Eigen::Vector3d(
-				msg->position[0 + leg * 3],
-				msg->position[1 + leg * 3],
-				msg->position[2 + leg * 3]);
-			qd[leg] = Eigen::Vector3d(
-				msg->velocity[0 + leg * 3],
-				msg->velocity[1 + leg * 3],
-				msg->velocity[2 + leg * 3]);
-		};
+		qJ = Eigen::VectorXd::Map(msg->position.data(), 12);
+		dqJ = Eigen::VectorXd::Map(msg->velocity.data(), 12);
 
 		return; // This function is not used in this controller
 	};
 
+	void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
+	{
+		latest_odom_ = *msg;
+	}
+
 	/*
 	 * Callback that updates the desired foot states based on incoming messages.
 	 * Receives desired foot positions and velocities and saves the most recent to internal variables.
-	 * 
+	 *
 	 * @param msg The message containing the desired foot states.
 	 */
-	void footStateCallback(const quadruped_interfaces::msg::FootStates::SharedPtr msg)
+	void fullBodyCommandCallback(const quadruped_interfaces::msg::FullBodyControlCommand::SharedPtr msg)
 	{
-		// Unpack desired foot states from the message
-		for (size_t leg = 0; leg < 4; ++leg)
+		// Map directly into Eigen vectors
+		dqb_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqb_ref.data(), msg->dqb_ref.size());
+		dqp_ref = Eigen::Map<const Eigen::VectorXd>(msg->dqp_ref.data(), msg->dqp_ref.size());
+		if (!msg->leg_constraint.empty())
 		{
-			desired_footPosition[leg] = Eigen::Vector3d(
-				msg->desired_positions[leg].x,
-				msg->desired_positions[leg].y,
-				msg->desired_positions[leg].z);
+			leg_constraint.assign(msg->leg_constraint.begin(), msg->leg_constraint.end());
+		}
 
-			desired_footVelocity[leg] = Eigen::Vector3d(
-				msg->desired_velocities[leg].x,
-				msg->desired_velocities[leg].y,
-				msg->desired_velocities[leg].z);
-		};
-
-		return; 
-	};
+		return;
+	}
 
 	/*
 	 * Computes the Jacobian matrix for a 3-DOF leg based on the joint angles.
 	 * Contains the full 6x3 matric however only using linear velocity components
 	 *
-	 * @param q The joint angles of the leg (3 DOF).
+	 * @param q: The joint angles of the leg (3 DOF).
 	 * @param leg The index of the leg (0-3).
 	 *
 	 * @return The Jacobian matrix (3x3) for the leg.
@@ -317,109 +377,287 @@ private:
 	Eigen::MatrixXd computeJacobian(const Eigen::Vector3d &q,
 									const int leg)
 	{
-		// Unpack joint angles from the input vector
-		double theta1 = q(0);
-		double theta2 = q(1);
-		double theta3 = q(2);
-
-		// Link lengths
-		double l1 = link_lengths[0];
-		double l2 = link_lengths[1];
-		double l3 = link_lengths[2];
-
-		// Adjust link length based on leg index (for left legs)
-		if (leg == 0 || leg == 1)
-		{
-			l1 *= -1;
-		}
-
-		// Compute the Jacobian matrix for the 3-DOF leg (Currently ignored roll, pitch, and yaw)
-		Eigen::MatrixXd J(3, 3);
-		J << 0,
-			l2 * std::sin(theta2) - l3 * std::cos(theta2 + theta3),
-			-l3 * std::cos(theta2 + theta3),
-			l1 * std::sin(theta1) - l2 * std::cos(theta1) * std::sin(theta2) + l3 * std::cos(theta1) * std::cos(theta2) * std::cos(theta3) - l3 * std::cos(theta1) * std::sin(theta2) * std::sin(theta3),
-			-std::sin(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
-			-l3 * std::sin(theta2 + theta3) * std::sin(theta1),
-			l3 * std::cos(theta2) * std::cos(theta3) * std::sin(theta1) - l2 * std::sin(theta1) * std::sin(theta2) - l1 * std::cos(theta1) - l3 * std::sin(theta1) * std::sin(theta2) * std::sin(theta3),
-			std::cos(theta1) * (l3 * std::sin(theta2 + theta3) + l2 * std::cos(theta2)),
-			l3 * std::sin(theta2 + theta3) * std::cos(theta1);
-		// 1,
-		// 0,
-		// 0,
-		// 0,
-		// std::cos(theta1),
-		// std::cos(theta1),
-		// 0,
-		// std::sin(theta1),
-		// std::sin(theta1),
-
-		return J;
+		const auto kin = computeLegForwardKinematics(q, leg);
+		const Eigen::Matrix<double, 6, 3> J_leg = legJacobianFromKinematics(kin);
+		return J_leg;
 	}
 
 	/*
-	 * Computes the position of foot position for a 3-DOF leg based on the joint angles.
-	 * Contains the full 4x4 transformation matrix however only using position atm
+	 * Computes the Jacobian matrix for full floating body kinematics.
+	 * Contains the full matrix
 	 *
-	 * @param q The joint angles of the leg (3 DOF).
-	 * @param leg The index of the leg (0-3).
+	 * @param q The joint angles of the system
 	 *
-	 * @return The position of the foot in world coordinates (3D vector).
+	 * @return The Jacobian matrix (3x3) for the leg.
 	 */
+	Eigen::MatrixXd computeFullJacobian()
+	{
+		Eigen::MatrixXd J_full = Eigen::MatrixXd::Zero(24, 18);
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			const int row = static_cast<int>(6 * leg);
+			const int col = static_cast<int>(6 + 3 * leg);
+			const auto kin = computeLegForwardKinematics(qJ.segment<3>(3 * leg), static_cast<int>(leg));
+
+			leg_kinematics_[leg] = kin;
+
+			J_full.block<3, 3>(row, 0) = Eigen::Matrix3d::Identity();
+			J_full.block<3, 3>(row, 3) = -skew(kin.rp);
+			J_full.block<3, 3>(row + 3, 3) = Eigen::Matrix3d::Identity();
+
+			const Eigen::Matrix<double, 6, 3> J_leg = legJacobianFromKinematics(kin);
+			J_full.block<6, 3>(row, col) = J_leg;
+		}
+
+		return J_full;
+	}
+
+	Eigen::VectorXd trajectoryGenerator(
+		const Eigen::VectorXd &dqb_ref,
+		const Eigen::VectorXd &dqp_ref)
+	{
+		(void)dqb_ref;
+		(void)dqp_ref;
+
+		const double time = this->get_clock()->now().seconds();
+		const double dt = control_time_step_ms / 1000.0;
+
+		if (!trajectory_initialized_ || trajectory_q_des_.size() != dof || time <= 1e-12)
+		{
+			trajectory_q_des_ = qJ;
+			trajectory_initialized_ = true;
+		}
+
+		std::array<LegKinematics, 4> legs{};
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			legs[leg] = computeLegForwardKinematics(qJ.segment<3>(3 * leg), static_cast<int>(leg));
+		}
+
+		const Eigen::Matrix<double, 12, 18> Jp = feetPositionJacobian(legs);
+		const Eigen::Matrix<double, 12, 6> Jb = Jp.block<12, 6>(0, 0);
+		const Eigen::Matrix<double, 12, 12> Jq = Jp.block<12, 12>(0, 6);
+
+		const double f = 0.25;
+		const double amp = 0.1;
+		Eigen::Vector3d vB_des(0.0, amp * std::sin(2.0 * M_PI * f * time), 0.0);
+		Eigen::Vector3d wB_des = Eigen::Vector3d::Zero();
+		Eigen::Matrix<double, 6, 1> dqb;
+		dqb << vB_des, wB_des;
+
+		const Eigen::Matrix<double, 12, 1> rhs = Jb * dqb;
+		const double lambda = 1e-3;
+		const Eigen::Matrix<double, 12, 12> I = Eigen::Matrix<double, 12, 12>::Identity();
+		const Eigen::Matrix<double, 12, 1> dq_des = -(Jq.transpose() * Jq + lambda * lambda * I).ldlt().solve(Jq.transpose() * rhs);
+
+		if (trajectory_q_des_.size() != dof)
+		{
+			trajectory_q_des_ = qJ;
+		}
+
+		trajectory_q_des_.noalias() += dq_des * dt;
+		leg_kinematics_ = legs;
+
+		return dq_des;
+	}
+
+	Eigen::VectorXd trajectoryGeneratorLinearOnly() // 24x1 desired [v; w] per foot
+	{
+		// Full Jacobian: 24x18
+		Eigen::MatrixXd J_full = computeFullJacobian();
+
+		// Split into body and legs
+		Eigen::MatrixXd Jb = J_full.leftCols(6);   // 24x6
+		Eigen::MatrixXd Jl = J_full.rightCols(12); // 24x12
+
+		// Compact linear-only Jacobians: 12 rows total
+		Eigen::MatrixXd Jb_v(12, 6);
+		Eigen::MatrixXd Jl_v(12, 12);
+		Jb_v.setZero();
+		Jl_v.setZero();
+
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			int r = 6 * leg;  // start row in full Jacobian
+			int rv = 3 * leg; // start row in compact Jacobian
+			int c = 3 * leg;  // start col for leg’s joints
+
+			// take only top 3 rows (linear part)
+			Jb_v.block<3, 6>(rv, 0) = Jb.block<3, 6>(r, 0);
+			Jl_v.block<3, 3>(rv, c) = Jl.block<3, 3>(r, c);
+		}
+
+		// Extract only linear desired velocities (first 3 per leg)
+		Eigen::VectorXd vl_v(12);
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			vl_v.segment<3>(3 * leg) = dqp_ref.segment<3>(6 * leg); // take top 3 of each 6
+		}
+
+		// Solve least squares
+		// Eigen::VectorXd qld_calc = Jl_v.completeOrthogonalDecomposition().pseudoInverse() * (vl_v - Jb_v * dqb_ref);
+
+		Eigen::VectorXd qld_calc = Jl_v.inverse() * (vl_v - Jb_v * dqb_ref);
+
+		// double lambda = 1e-5;
+		// Eigen::MatrixXd I = Eigen::MatrixXd::Identity(Jl.cols(), Jl.cols());
+		// Eigen::VectorXd qld_calc = (Jl.transpose() * Jl + lambda * lambda * I)
+		// 			   .ldlt()
+		// 			   .solve(Jl.transpose() * (dqp_ref - Jb * dqb_ref));
+
+		return qld_calc; // 12x1 joint velocities
+	}
+
+	static Eigen::Matrix3d skew(const Eigen::Vector3d &a)
+	{
+		Eigen::Matrix3d A;
+		A << 0.0, -a.z(), a.y(),
+			a.z(), 0.0, -a.x(),
+			-a.y(), a.x(), 0.0;
+		return A;
+	}
+
+	Eigen::Vector3d legBasePosition(int leg) const
+	{
+		switch (leg)
+		{
+		case 0:
+			return Eigen::Vector3d(0.28375, 0.1540, 0.025);
+		case 1:
+			return Eigen::Vector3d(-0.28375, 0.1540, 0.025);
+		case 2:
+			return Eigen::Vector3d(-0.28375, -0.1540, 0.025);
+		case 3:
+			return Eigen::Vector3d(0.28375, -0.1540, 0.025);
+		default:
+			return Eigen::Vector3d::Zero();
+		}
+	}
+
+	double hipOffsetSign(int leg) const
+	{
+		return (leg < 2) ? 1.0 : -1.0;
+	}
+
+	LegKinematics computeLegForwardKinematics(const Eigen::Vector3d &q_leg, int leg) const
+	{
+		const double d1 = 0.1345;
+		const double d2 = 0.37034477;
+		const double d3 = 0.36328592;
+
+		const Eigen::Vector3d r_bl = legBasePosition(leg);
+		const double d1_sgn = hipOffsetSign(leg);
+
+		Eigen::Matrix4d TB0;
+		TB0 << 0, 0, 1, r_bl.x(),
+			0, -1, 0, r_bl.y(),
+			1, 0, 0, r_bl.z(),
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T01;
+		const double th1 = q_leg(0);
+		const double c1 = std::cos(th1);
+		const double s1 = std::sin(th1);
+		T01 << c1, -s1, 0, 0,
+			s1, c1, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T12;
+		const double th2 = q_leg(1) - M_PI / 2.0;
+		const double c2 = std::cos(th2);
+		const double s2 = std::sin(th2);
+		T12 << c2, -s2, 0, 0,
+			0, 0, -1, -d1 * d1_sgn,
+			s2, c2, 0, 0,
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T23;
+		const double th3 = q_leg(2);
+		const double c3 = std::cos(th3);
+		const double s3 = std::sin(th3);
+		T23 << c3, -s3, 0, d2,
+			s3, c3, 0, 0,
+			0, 0, 1, 0,
+			0, 0, 0, 1;
+
+		Eigen::Matrix4d T3P;
+		T3P << 1, 0, 0, 0,
+			0, 1, 0, -d3,
+			0, 0, 1, 0,
+			0, 0, 0, 1;
+
+		const Eigen::Matrix4d TB1 = TB0 * T01;
+		const Eigen::Matrix4d TB2 = TB1 * T12;
+		const Eigen::Matrix4d TB3 = TB2 * T23;
+		const Eigen::Matrix4d TBP = TB3 * T3P;
+
+		LegKinematics kin;
+		kin.r1 = TB1.block<3, 1>(0, 3);
+		kin.r2 = TB2.block<3, 1>(0, 3);
+		kin.r3 = TB3.block<3, 1>(0, 3);
+		kin.rp = TBP.block<3, 1>(0, 3);
+
+		kin.z1 = TB1.block<3, 3>(0, 0).col(2);
+		kin.z2 = TB2.block<3, 3>(0, 0).col(2);
+		kin.z3 = TB3.block<3, 3>(0, 0).col(2);
+
+		return kin;
+	}
+
+	Eigen::Matrix<double, 6, 3> legJacobianFromKinematics(const LegKinematics &kin) const
+	{
+		Eigen::Matrix<double, 6, 3> J;
+		J.block<3, 1>(0, 0) = kin.z1.cross(kin.rp - kin.r1);
+		J.block<3, 1>(0, 1) = kin.z2.cross(kin.rp - kin.r2);
+		J.block<3, 1>(0, 2) = kin.z3.cross(kin.rp - kin.r3);
+		J.block<3, 1>(3, 0) = kin.z1;
+		J.block<3, 1>(3, 1) = kin.z2;
+		J.block<3, 1>(3, 2) = kin.z3;
+		return J;
+	}
+
+	Eigen::Matrix<double, 12, 18> feetPositionJacobian(const std::array<LegKinematics, 4> &legs) const
+	{
+		Eigen::Matrix<double, 12, 18> Jp;
+		Jp.setZero();
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			const int row = static_cast<int>(3 * leg);
+			const int col = static_cast<int>(6 + 3 * leg);
+
+			Jp.block<3, 3>(row, 0) = Eigen::Matrix3d::Identity();
+			Jp.block<3, 3>(row, 3) = -skew(legs[leg].rp);
+			Jp.block<3, 1>(row, col + 0) = legs[leg].z1.cross(legs[leg].rp - legs[leg].r1);
+			Jp.block<3, 1>(row, col + 1) = legs[leg].z2.cross(legs[leg].rp - legs[leg].r2);
+			Jp.block<3, 1>(row, col + 2) = legs[leg].z3.cross(legs[leg].rp - legs[leg].r3);
+		}
+
+		return Jp;
+	}
+
 	Eigen::VectorXd forwardKinematics(const Eigen::Vector3d &q,
 									  const int leg)
 	{
-		double theta1 = q(0);
-		double theta2 = q(1);
-		double theta3 = q(2);
+		const auto kin = computeLegForwardKinematics(q, leg);
+		Eigen::VectorXd position(3);
+		position = kin.rp;
+		return position;
+	}
 
-		// Precompute useful terms
-		// // Link lengths
-		double l1 = link_lengths[0];
-		double l2 = link_lengths[1];
-		double l3 = link_lengths[2];
+	Eigen::VectorXd fullForwardKinematics()
+	{
+		Eigen::VectorXd pawPosition(12);
 
-		if (leg == 0 || leg == 1)
+		for (size_t leg = 0; leg < 4; ++leg)
 		{
-			l1 *= -1;
+			leg_kinematics_[leg] = computeLegForwardKinematics(qJ.segment<3>(3 * leg), static_cast<int>(leg));
+			pawPosition.segment<3>(3 * leg) = leg_kinematics_[leg].rp;
 		}
 
-		double x0 = 0.28375; // Base position in x
-		double y0 = 0.1540; // Base position in y
-		// double z0 = -38.5 - 25.0; // Base position in z
-		double z0 = 0.025; // Base position in z
-
-		if (leg == 2 || leg == 3)
-		{
-			y0 *= -1; // Adjust y position for right legs
-		}
-
-		if (leg == 1 || leg == 2)
-		{
-			x0 *= -1; // Adjust x position for rear legs
-		}
-
-		// Build the transformation matrix
-		Eigen::Matrix4d fk;
-		fk << -std::cos(theta2 + theta3),
-			std::sin(theta2 + theta3),
-			0,
-			x0 - l3 * std::sin(theta2 + theta3) - l2 * std::cos(theta2),
-			-std::sin(theta2 + theta3) * std::sin(theta1),
-			-std::cos(theta2 + theta3) * std::sin(theta1),
-			std::cos(theta1),
-			y0 - l1 * std::cos(theta1) - l2 * std::sin(theta1) * std::sin(theta2) + l3 * std::cos(theta2) * std::cos(theta3) * std::sin(theta1) - l3 * std::sin(theta1) * std::sin(theta2) * std::sin(theta3),
-			std::sin(theta2 + theta3) * std::cos(theta1),
-			std::cos(theta2 + theta3) * std::cos(theta1),
-			std::sin(theta1),
-			z0 - l1 * std::sin(theta1) + l2 * std::cos(theta1) * std::sin(theta2) - l3 * std::cos(theta1) * std::cos(theta2) * std::cos(theta3) + l3 * std::cos(theta1) * std::sin(theta2) * std::sin(theta3),
-			0,
-			0,
-			0,
-			1;
-
-		// Extract and return the position (4th column, top 3 rows)
-		return fk.block<3, 1>(0, 3); // XYZ position
+		return pawPosition;
 	}
 
 	/*
@@ -449,7 +687,7 @@ private:
 		}
 
 		double x0 = 0.28375; // Base position in x
-		double y0 = 0.1540; // Base position in y
+		double y0 = 0.1540;	 // Base position in y
 		// double z0 = -38.5 - 25.0; // Base position in z
 		double z0 = 0.025; // Base position in z
 
@@ -522,223 +760,172 @@ private:
 	{
 		assert(q.size() == 3 && qd.size() == 3 && qdd.size() == 3);
 
-		// Link lengths
-		double l1 = link_lengths[0], l2 = link_lengths[1], l3 = link_lengths[2];
-
-		// Adjust link length based on leg index (for left legs)
+		// Link geometry
+		double l1 = link_lengths[0];
+		const double l2 = link_lengths[1];
+		const double l3 = link_lengths[2];
 		if (leg == 0 || leg == 1)
 		{
-			l1 *= -1;
+			l1 *= -1.0;
 		}
 
-		// Precompute useful terms
+		// Precompute rotation terms
 		const double c1 = std::cos(q(0)), s1 = std::sin(q(0));
 		const double c2 = std::cos(q(1)), s2 = std::sin(q(1));
 		const double c3 = std::cos(q(2)), s3 = std::sin(q(2));
 
-		// Rotation matrices from joint i to joint i+1
 		std::array<Eigen::Matrix3d, 4> R;
 		R[0] << c1, -s1, 0,
 			s1, c1, 0,
 			0, 0, 1; // R01
-
 		R[1] << s2, c2, 0,
 			0, 0, -1,
-			-c2, s2, 0; // R12 (alpha1 = -pi/2 folded in)
-
+			-c2, s2, 0; // R12
 		R[2] << c3, -s3, 0,
 			s3, c3, 0,
-			0, 0, 1; // R23
+			0, 0, 1;		// R23
+		R[3].setIdentity(); // R3E
 
-		R[3].setIdentity(); // R3E (end effector)
-
-		// Joint offset in each link frame
 		std::array<Eigen::Vector3d, 4> oc;
-		oc[0] = Eigen::Vector3d::Zero();	// from frame0 to frame1
-		oc[1] = Eigen::Vector3d(0, l1, 0);	// from frame1 to frame2
-		oc[2] = Eigen::Vector3d(l2, 0, 0);	// from frame2 to frame3
-		oc[3] = Eigen::Vector3d(0, -l3, 0); // from frame3 to end
-
-		// Declare variables for centorid of mass (COM) positions and inertia tensors
-		// @todo: restructure pcom variable similar to I variable
-		// Eigen::Vector3d pcom0;
-		// Eigen::Vector3d pcom1;
-		// Eigen::Vector3d pcom2;
-		// std::array<Eigen::Matrix3d, 3> Il;
-		// std::array<Eigen::Vector3d, 3> pcoml;
-
-		// if (leg == 0) // Front Left Leg
-		// {
-		// 	pcom0 << pcom[1];
-		// 	pcom1 << pcom[2];
-		// 	pcom2 << pcom[3];
-
-		// 	Il[0] = I[1];
-		// 	Il[1] = I[2];
-		// 	Il[2] = I[3];
-			// pcom0 << 0.000391481, 0.0100851, -0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, -0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
-
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, -1.250985e-05, -2.28685e-06,
-			// 	-1.250985e-05, 0.00120555158, -5.558186e-05,
-			// 	-2.28685e-06, -5.558186e-05, 0.00180943675;
-
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, -4.343353e-05,
-			// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
-
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	2.839e-08, -1.283e-08, 0.00534034752;
-		// }
-		// else if (leg == 1) // Back Left Leg
-		// {
-			
-			// pcom0 << 0.000391481, 0.0100851, 0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, -0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, -0.0000484705;
-
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, -1.250985e-05, 2.28685e-06,
-			// 	-1.250985e-05, 0.00120555158, 5.558186e-05,
-			// 	2.28685e-06, 5.558186e-05, 0.00180943675;
-
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, 6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, -4.343353e-05,
-			// 	6.8578831e-04, -4.343353e-05, 0.02715762933;
-
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, -2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	-2.839e-08, -1.283e-08, 0.00534034752;
-		// }
-		// else if (leg == 2) // Back Right Leg
-		// {
-			// pcom0 << 0.000391481, -0.0100851, 0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, 0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
-
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, 1.250985e-05, 2.28685e-06,
-			// 	1.250985e-05, 0.00120555158, -5.558186e-05,
-			// 	2.28685e-06, -5.558186e-05, 0.00180943675;
-
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, 4.343353e-05,
-			// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
-
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	2.839e-08, -1.283e-08, 0.00534034752;
-		// }
-		// else if (leg == 3) // Front Right leg
-		// {
-			// Test in single leg
-			// pcom0 << 0.000391481, -0.0100851, -0.00369477;
-			// pcom1 << 0.07500288, 0.00474222, 0.00461711;
-			// pcom2 << -0.0069932, -0.20108691, 0.0000484705;
-
-			// // I₁ expressed about frame 1
-			// Il[0] << 0.00233403831, 1.250985e-05, -2.28685e-06,
-			// 	1.250985e-05, 0.00120555158, 5.558186e-05,
-			// 	-2.28685e-06, 5.558186e-05, 0.00180943675;
-
-			// // I₂ expressed about frame 2
-			// Il[1] << 0.00147687636, 0.00150249799, -6.8578831e-04,
-			// 	0.00150249799, 0.02752790728, 4.343353e-05,
-			// 	-6.8578831e-04, 4.343353e-05, 0.02715762933;
-
-			// // I₃ expressed about frame 3
-			// Il[2] << 0.00533739913, -1.0343004e-04, 2.839e-08,
-			// 	-1.0343004e-04, 5.278181e-05, -1.283e-08,
-			// 	2.839e-08, -1.283e-08, 0.00534034752;
-		// }
+		oc[0] = Eigen::Vector3d::Zero();
+		oc[1] = Eigen::Vector3d(0.0, l1, 0.0);
+		oc[2] = Eigen::Vector3d(l2, 0.0, 0.0);
+		oc[3] = Eigen::Vector3d(0.0, -l3, 0.0);
 
 		const std::array<Eigen::Vector3d, 3> pcoml = {
-			pcom[leg*3 + 1],
-			pcom[leg*3 + 2],
-			pcom[leg*3 + 3]};
+			pcom[leg * 3 + 1],
+			pcom[leg * 3 + 2],
+			pcom[leg * 3 + 3]};
 
 		const std::array<Eigen::Matrix3d, 3> Il = {
-			I[leg*3 + 1],
-			I[leg*3 + 2],
-			I[leg*3 + 3]};
+			I[leg * 3 + 1],
+			I[leg * 3 + 2],
+			I[leg * 3 + 3]};
 
-		// Convert inertia tensors from g*cm^2 to kg*m^2
-		// Il[0] *= 1e-06;
-		// Il[1] *= 1e-06;
-		// Il[2] *= 1e-06;
+		Eigen::Vector3d z0(0.0, 0.0, 1.0);
 
-		// Declare Newton Euler variables
-		Eigen::Vector3d z0(0, 0, 1);
-		std::vector<Eigen::Vector3d> w(4, Eigen::Vector3d::Zero());
-		std::vector<Eigen::Vector3d> wd(4, Eigen::Vector3d::Zero());
-		std::vector<Eigen::Vector3d> vd(4, Eigen::Vector3d::Zero());
-		std::array<Eigen::Vector3d, 3> vdcom;
+		std::array<Eigen::Vector3d, 4> w{};
+		std::array<Eigen::Vector3d, 4> wd{};
+		std::array<Eigen::Vector3d, 4> v{};
+		std::array<Eigen::Vector3d, 4> vcom{};
+		v[0] << g, 0.0, 0.0;
 
-		// Gravity in frame 0
-		vd[0] << g, 0, 0;
-
-		// Neuton Euler forward iteration
-		for (int i = 0; i < 3; ++i)
+		for (int idx = 1; idx <= 3; ++idx)
 		{
-			const Eigen::Matrix3d Rt = R[i].transpose();
-			const Eigen::Vector3d wi = w[i];
-			const Eigen::Vector3d wdi = wd[i];
-			const Eigen::Vector3d vdi = vd[i];
+			const Eigen::Matrix3d Rt = R[idx - 1].transpose();
+			// const Eigen::Vector3d &wi_prev = w[idx - 1];
+			// const Eigen::Vector3d &wdi_prev = wd[idx - 1];
+			const Eigen::Vector3d &o_i = oc[idx - 1];		 // ^i o_{i-1}
+			const Eigen::Vector3d &p_com_i = pcoml[idx - 1]; // ^i p_{CoM_i}
 
-			w[i + 1] = Rt * wi + qd(i) * z0;
-			wd[i + 1] = Rt * wdi + qdd(i) * z0 + qd(i) * ((Rt * wi).cross(z0));
-			vd[i + 1] = Rt * (vdi + wdi.cross(oc[i]) + wi.cross(wi.cross(oc[i])));
-			vdcom[i] = vd[i + 1] + wd[i + 1].cross(pcoml[i]) + w[i + 1].cross(w[i + 1].cross(pcoml[i]));
+			const double qd_i = qd(idx - 1);
+			const double qdd_i = qdd(idx - 1);
+
+			w[idx] = Rt * (w[idx - 1] + qd_i * z0);
+			wd[idx] = Rt * (wd[idx - 1] + qdd_i * z0 + qd_i * w[idx - 1].cross(z0));
+			v[idx] = Rt * (v[idx - 1] + wd[idx - 1].cross(o_i) + w[idx - 1].cross(w[idx - 1].cross(o_i)));
+			vcom[idx] = v[idx] + wd[idx].cross(p_com_i) + w[idx].cross(w[idx].cross(p_com_i));
 		}
 
-		// Neuton Euler Backward iteration
-		std::vector<Eigen::Vector3d> f(4, Eigen::Vector3d::Zero());
-		std::vector<Eigen::Vector3d> n(4, Eigen::Vector3d::Zero());
+		std::array<Eigen::Vector3d, 4> f{};
+		std::array<Eigen::Vector3d, 4> n{};
+
 		Eigen::VectorXd tau(3);
 
-		for (int i = 2; i >= 0; --i)
+		for (int idx = 3; idx >= 1; --idx)
 		{
-			const Eigen::Matrix3d &Rnext = R[i + 1];
-			f[i] = Rnext * f[i + 1] + mass[i+1] * vdcom[i];
-			n[i] = Il[i] * wd[i + 1] + w[i + 1].cross(Il[i] * w[i + 1]) - f[i].cross(pcoml[i]) + Rnext * n[i + 1] + (Rnext * f[i + 1]).cross(pcoml[i] - oc[i + 1]);
-			tau(i) = n[i].dot(z0);
+			const int link = idx - 1;
+			const Eigen::Matrix3d &Rnext = R[idx];
+			const Eigen::Vector3d f_next_in_curr = Rnext * f[idx];
+			const Eigen::Vector3d n_next_in_curr = Rnext * n[idx];
+
+			f[link] = f_next_in_curr + mass[link + 1] * vcom[idx];
+			n[link] = Il[link] * wd[idx] + w[idx].cross(Il[link] * w[idx]) - f[link].cross(pcoml[link]) + n_next_in_curr + f_next_in_curr.cross(pcoml[link] - oc[idx]);
+			tau(link) = n[link].dot(z0);
 		}
 
 		return tau;
 	}
 
+	Eigen::VectorXd fullNEDynamics()
+	{
+		Eigen::VectorXd tau(12);
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			tau.segment<3>(3 * leg) = NE_Dynamics(qJ.segment<3>(3 * leg), dqJ.segment<3>(3 * leg), zero3, -gravity, leg);
+		}
+
+		return tau;
+	}
+
+	void setGcCallback(
+		const std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Request> req,
+		std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Response> res)
+	{
+
+		Eigen::VectorXd target(12);
+		for (int i = 0; i < 12; ++i)
+			target[i] = req->q[i];
+
+		qJ_ref = target;
+
+		res->ok = true;
+		res->message = "Queued generalized coordinate set.";
+	}
+
 	// Declaration for ROS2 subscriptions and publishers
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
-	rclcpp::Subscription<quadruped_interfaces::msg::FootStates>::SharedPtr foot_state_sub_;
+
+	rclcpp::Subscription<quadruped_interfaces::msg::FullBodyControlCommand>::SharedPtr full_body_command_sub_;
+	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
+	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_velocity_publisher_;
+
+	rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
 	rclcpp::TimerBase::SharedPtr timer_;
+
+	nav_msgs::msg::Odometry latest_odom_;
 
 	// Declaration for model parameters and variables
 	std::vector<double> init_pos;
 	std::vector<double> link_lengths;
 
-	std::vector<Eigen::Vector3d> legJointPosition;	 // size 4, each is 3-DOF joint position
-	std::vector<Eigen::Vector3d> legJointVelocity;	 // size 4, each is 3-DOF joint velocity
-	std::vector<Eigen::Vector3d> footPosition;		 // size 4, each is foot position (x, y, z)
-	std::vector<Eigen::Vector3d> footPositionActual; // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> q;					 // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> qd;				 // size 4, actual foot positions (x, y, z)
-	std::vector<Eigen::Vector3d> desired_footPosition; // size 4, each is desired foot position (x, y, z)
-	std::vector<Eigen::Vector3d> desired_footVelocity; // size 4, each is desired foot velocity (x, y, z)
+	Eigen::VectorXd qb;		 // Measured body positions (XYZRPY)
+	Eigen::VectorXd dqb;	 // Measured body velocitys (XYZRPY)
+	Eigen::VectorXd qb_ref;	 // Reference body positions (XYZRPY)
+	Eigen::VectorXd dqb_ref; // Reference body velocitys (XYZRPY)
 
-	std::vector<Eigen::Vector3d> footPositionWalk;	 // size 4, each is foot position (x, y, z)
+	Eigen::VectorXd qp;		 // Measured Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+	Eigen::VectorXd dqp;	 // Measured Paw velocitys (p1 XYZRPY, p2 XYZRPY, ...)
+	Eigen::VectorXd qp_ref;	 // Reference Paw positions (p1 XYZRPY, p2 XYZRPY, ...)
+	Eigen::VectorXd dqp_ref; // Reference Paw velocitys (p1 XYZRPY, p2 XYZRPY, ...)
+
+	Eigen::VectorXd qJ;		 // Measured Joint positions (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd dqJ;	 // Measured Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qJ_ref;	 // Reference Joint positions (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd dqJ_ref; // Reference Joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+
+	Eigen::VectorXd qJ_prev;	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd dqJ_prev;	  // Previous joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qJ_ref_prev;  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd dqJ_ref_prev; // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+
+	Eigen::VectorXd qT_comp; // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd trajectory_q_des_;
+	bool trajectory_initialized_ = false;
+
+	std::vector<bool> leg_constraint; // Inclusion of leg in constraint matrix (1 = included, 0 = not)
+
+	Eigen::Vector3d cartesian_kp_;
+	Eigen::Vector3d cartesian_kd_;
 
 	Eigen::Vector3d zero3 = Eigen::Vector3d::Zero();
+
+	Eigen::Matrix3d I3 = Eigen::Matrix3d::Identity();
+	Eigen::Matrix3d O3 = Eigen::Matrix3d::Zero();
 
 	double gravity = -9.81;
 	float control_time_step_ms;
@@ -768,7 +955,7 @@ private:
 	double stepLength = 0.3;
 	double stepHeight = 0.2;
 	double stepFrequency = 2.0;
-	double walkOffset[4] = {-stepLength/2, -stepLength/6, stepLength/6, stepLength/2};
+	double walkOffset[4] = {-stepLength / 2, -stepLength / 6, stepLength / 6, stepLength / 2};
 
 	// Eigen::Vector3d pcomb = {0.0, 0.0, 0.086};
 
@@ -777,14 +964,12 @@ private:
 	// 	0.0, 588124.01325, 0.0,
 	// 	0.0, 0.0, 769095.07872
 	// };
-	
 
+	std::array<LegKinematics, 4> leg_kinematics_{};
 	std::array<Eigen::Matrix3d, 13> I;
 	std::array<Eigen::Vector3d, 13> pcom;
 	// Link masses
 	const std::array<double, 4> mass = {17.122, 1.952, 2.437, 0.247};
-
-	
 };
 
 int main(int argc, char **argv)

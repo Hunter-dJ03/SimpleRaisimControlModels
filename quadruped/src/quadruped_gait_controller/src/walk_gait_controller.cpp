@@ -179,6 +179,7 @@ private:
 		leg_constraint.setConstant(1.0);
 
 		dqb_ref[0] = forwardStepLength / (stepDuration) * 1000.0;
+		dqb_ref[1] = sideStepLength / (stepDuration) * 1000.0;
 
 		// dqb_ref[0] = A1 * cos(omega1 * (now_ros.seconds() - 2.0));
 

@@ -14,6 +14,7 @@ find_package(geometry_msgs REQUIRED)
 # point-pair message
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Endpoint.msg"
+  "msg/FootContactForces.msg"
   "msg/FootStates.msg"
   "msg/FullBodyControlCommand.msg"
   "srv/SetGeneralizedCoordinate.srv"

@@ -165,19 +165,19 @@
     </collision>
   </link>
   <!-- Link tibia1 -->
-  <link name="tibia">
+  <link name="FL_tibia">
     <inertial>
       <origin xyz="-6.46276e-3 -165.43468e-3 0.24478e-3" rpy="0 0 0"/>
       <mass value="0.247"/>
       <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
-    <!-- Part tibia -->
+    <!-- Part FL_tibia -->
     <visual>
       <origin xyz="0 0 0" rpy="-2.583e-32 1.66832e-30 7.39557e-32"/>
       <geometry>
         <mesh filename="../meshes/tibia.obj"/>
       </geometry>
-      <material name="tibia_material">
+      <material name="FL_tibia_material">
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
@@ -204,7 +204,7 @@
   <joint name="Knee1" type="revolute">
     <origin xyz="0.370345 -3.46945e-18 0.064" rpy="2.9923e-15 -1.55118e-14 -2.22045e-16"/>
     <parent link="femurl"/>
-    <child link="tibia"/>
+    <child link="FL_tibia"/>
     <axis xyz="0 0 1"/>
     <limit effort="100" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
@@ -288,19 +288,19 @@
     </collision>
   </link>
   <!-- Link tibia2 -->
-  <link name="tibia_2">
+  <link name="BL_tibia">
     <inertial>
       <origin xyz="-6.46276e-3 -165.43468e-3 0.24478e-3" rpy="0 0 0"/>
       <mass value="0.247"/>
       <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
-    <!-- Part tibia_2 -->
+    <!-- Part BL_tibia -->
     <visual>
       <origin xyz="0 -3.46945e-18 0" rpy="-3.81705e-31 -9.20807e-31 -4.66119e-32"/>
       <geometry>
         <mesh filename="../meshes/tibia.obj"/>
       </geometry>
-      <material name="tibia_2_material">
+      <material name="BL_tibia_material">
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
@@ -323,11 +323,11 @@
       </geometry>
     </collision>
   </link>
-  <!-- Joint from femurl_2 to tibia_2 -->
+  <!-- Joint from femurl_2 to BL_tibia -->
   <joint name="Knee2" type="revolute">
     <origin xyz="0.370345 0 0.064" rpy="1.1545e-14 -1.8851e-14 1.01406e-15"/>
     <parent link="femurl_2"/>
-    <child link="tibia_2"/>
+    <child link="BL_tibia"/>
     <axis xyz="0 0 1"/>
     <limit effort="100" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
@@ -412,19 +412,19 @@
     </collision>
   </link>
   <!-- Link tibia3 -->
-  <link name="tibia_3">
+  <link name="BR_tibia">
     <inertial>
       <origin xyz="-6.46276e-3 -165.43468e-3 -0.24478e-3" rpy="0 0 0"/>
       <mass value="0.247"/>
       <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
-    <!-- Part tibia_3 -->
+    <!-- Part BR_tibia -->
     <visual>
       <origin xyz="0 0 0" rpy="0 -1.07558e-30 0"/>
       <geometry>
         <mesh filename="../meshes/tibia.obj"/>
       </geometry>
-      <material name="tibia_3_material">
+      <material name="BR_tibia_material">
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
@@ -447,11 +447,11 @@
       </geometry>
     </collision>
   </link>
-  <!-- Joint from femurr to tibia_3 -->
+  <!-- Joint from femurr to BR_tibia -->
   <joint name="Knee3" type="revolute">
     <origin xyz="0.370345 -6.93889e-18 -0.064" rpy="-3.21434e-15 1.57338e-14 -5.05857e-29"/>
     <parent link="femurr"/>
-    <child link="tibia_3"/>
+    <child link="BR_tibia"/>
     <axis xyz="0 0 1"/>
     <limit effort="100" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
@@ -535,19 +535,19 @@
     </collision>
   </link>
   <!-- Link tibia4 -->
-  <link name="tibia_4">
+  <link name="FR_tibia">
     <inertial>
       <origin xyz="-6.46276e-3 -165.43468e-3 -0.24478e-3" rpy="0 0 0"/>
       <mass value="0.247"/>
       <inertia ixx="6651.29948e-6" ixy="-86.04365e-6" ixz="0.14142e-6" iyy="64.86598e-6" iyz="0.99056e-6" izz="6643.89297e-6"/>
     </inertial>
-    <!-- Part tibia_4 -->
+    <!-- Part FR_tibia -->
     <visual>
       <origin xyz="0 3.46945e-18 5.55112e-17" rpy="3.49489e-31 1.16747e-31 2.46519e-32"/>
       <geometry>
         <mesh filename="../meshes/tibia.obj"/>
       </geometry>
-      <material name="tibia_4_material">
+      <material name="FR_tibia_material">
         <color rgba="0.768627 0.886275 0.952941 1.0"/>
       </material>
     </visual>
@@ -570,11 +570,11 @@
       </geometry>
     </collision>
   </link>
-  <!-- Joint from femurr_2 to tibia_4 -->
+  <!-- Joint from femurr_2 to FR_tibia -->
   <joint name="Knee4" type="revolute">
     <origin xyz="0.370438 6.32705e-06 -0.064" rpy="-3.27319e-15 1.55329e-14 8.87469e-31"/>
     <parent link="femurr_2"/>
-    <child link="tibia_4"/>
+    <child link="FR_tibia"/>
     <axis xyz="0 0 1"/>
     <limit effort="100" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />

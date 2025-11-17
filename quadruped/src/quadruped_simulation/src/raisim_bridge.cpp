@@ -3,17 +3,22 @@
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <builtin_interfaces/msg/time.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 
 #include <raisim/World.hpp>
 #include <raisim/RaisimServer.hpp>
 
 #include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+#include <quadruped_interfaces/msg/foot_contact_forces.hpp>
 
 #include <chrono>
 #include <thread>
 #include <Eigen/Dense>
 #include <mutex>
 #include <atomic>
+#include <array>
+#include <algorithm>
+#include <ode/ode.h>
 
 class RaisimBridge : public rclcpp::Node
 {
@@ -23,6 +28,7 @@ public:
 		// Setup ROS2 parameter time step for simulation, timers and models
 		pd_time_step_ms = this->declare_parameter<float>("pd_time_step_ms", 1.0);
 		fixed_robot_body = this->declare_parameter<bool>("fixed_robot_body", false);
+		foot_force_positive_z_only_ = this->declare_parameter<bool>("foot_force_positive_z_only", false);
 
 		// Logging info
 		RCLCPP_INFO(this->get_logger(), "Time step for simulation: %f ms", pd_time_step_ms);
@@ -157,6 +163,7 @@ public:
 		// Create Publisher for robot joint states
 		joint_state_pub = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
 		odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", 10);
+		foot_contact_pub_ = this->create_publisher<quadruped_interfaces::msg::FootContactForces>("foot_contact_forces", 10);
 		odom_msg_.header.frame_id = "odom";
 		odom_msg_.child_frame_id = "base_link";
 		odom_msg_.pose.pose.orientation.w = 1.0;
@@ -319,6 +326,23 @@ private:
 		// Step simulation
 		server.integrateWorldThreadSafe();
 
+		// Cache latest world-frame foot contact forces for downstream consumers
+		latest_foot_contact_forces_ = getFootContactForces();
+		if (foot_contact_pub_)
+		{
+			quadruped_interfaces::msg::FootContactForces contact_msg;
+			contact_msg.header.stamp = stamp;
+			contact_msg.header.frame_id = "world";
+			contact_msg.forces.resize(foot_link_names_.size());
+			for (size_t i = 0; i < foot_link_names_.size(); ++i)
+			{
+				contact_msg.forces[i].x = latest_foot_contact_forces_[i].x();
+				contact_msg.forces[i].y = latest_foot_contact_forces_[i].y();
+				contact_msg.forces[i].z = latest_foot_contact_forces_[i].z();
+			}
+			foot_contact_pub_->publish(contact_msg);
+		}
+
 		// Update simulated time
 		sim_time_ns_ += static_cast<int64_t>(dt_ * 1e9);
 	}
@@ -388,6 +412,108 @@ private:
 	// 				expected_dim, fixed_robot_body ? "fixed" : "floating");
 	// }
 
+		// Contact force helpers
+		std::array<Eigen::Vector3d, 4> getFootContactForces()
+		{
+			std::array<Eigen::Vector3d, 4> contact_forces;
+			for (auto &force : contact_forces)
+			{
+				force.setZero();
+			}
+
+			// If the robot is not yet loaded, no contact forces can be computed.
+			if (robot == nullptr)
+			{
+				return contact_forces;
+			}
+
+			// Bail out if the simulation timestep is not valid.
+			if (dt_ <= 0.0)
+			{
+				return contact_forces;
+			}
+
+			// Resolve collision geometries for spherical feet if needed.
+			const bool foot_geoms_missing = std::any_of(
+				foot_collision_geoms_.begin(), foot_collision_geoms_.end(),
+				[](const dGeomID geom)
+				{ return geom == nullptr; });
+
+			if (foot_geoms_missing)
+			{
+				const auto &collision_bodies = robot->getCollisionBodies();
+				for (const auto &collision : collision_bodies)
+				{
+					dGeomID geom = collision.getCollisionObject();
+					if (geom == nullptr || dGeomGetClass(geom) != dSphereClass)
+					{
+						continue;
+					}
+
+					for (size_t foot_idx = 0; foot_idx < foot_body_indices_.size(); ++foot_idx)
+					{
+						if (foot_collision_geoms_[foot_idx] == nullptr && collision.localIdx == foot_body_indices_[foot_idx])
+						{
+							foot_collision_geoms_[foot_idx] = geom;
+							break;
+						}
+					}
+				}
+			}
+
+			auto &contacts = robot->getContacts();
+
+			for (auto &contact : contacts)
+			{
+				// Skip self-collisions and suppressed contact points.
+				if (contact.skip() || contact.isSelfCollision())
+				{
+					continue;
+				}
+
+				// Determine which collision geometry belongs to the robot foot.
+				const dGeomID geom = contact.isObjectA() ? contact.getCollisionBodyA() : contact.getCollisionBodyB();
+				size_t matched_index = foot_collision_geoms_.size();
+
+				for (size_t idx = 0; idx < foot_collision_geoms_.size(); ++idx)
+				{
+					if (foot_collision_geoms_[idx] != nullptr && foot_collision_geoms_[idx] == geom)
+					{
+						matched_index = idx;
+						break;
+					}
+				}
+
+				if (matched_index == foot_collision_geoms_.size())
+				{
+					continue;
+				}
+
+				// Convert impulse (contact frame) to force (world frame).
+				Eigen::Vector3d contact_force = contact.getContactFrame().e().transpose() * contact.getImpulse().e();
+			contact_forces[matched_index] += contact_force / dt_;
+		}
+
+		// Optionally project the force magnitude onto +Z to mimic normal-only sensing.
+		if (foot_force_positive_z_only_)
+		{
+			for (auto &force : contact_forces)
+			{
+				const double magnitude = force.norm();
+				force.setZero();
+				force.z() = magnitude;
+			}
+		}
+
+		return contact_forces;
+	}
+
+		const std::array<std::string, 4> foot_link_names_{{"FL_tibia", "FR_tibia", "BL_tibia", "BR_tibia"}};
+		const std::array<size_t, 4> foot_body_indices_{{3, 6, 9, 12}};
+		std::array<dGeomID, 4> foot_collision_geoms_{{nullptr, nullptr, nullptr, nullptr}};
+		std::array<Eigen::Vector3d, 4> latest_foot_contact_forces_{};
+		bool foot_force_positive_z_only_ = false;
+
 	// Raisim control variables
 	bool shutdown_called_ = false;
 	raisim::World world;
@@ -400,6 +526,7 @@ private:
 	// Declare ROS2 publishers, sibscribers and timers
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
 	rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+	rclcpp::Publisher<quadruped_interfaces::msg::FootContactForces>::SharedPtr foot_contact_pub_;
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr desired_cmd_sub_;
 	rclcpp::TimerBase::SharedPtr timer_;
 	// rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;

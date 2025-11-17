@@ -2,4 +2,5 @@
   ros__parameters:
     fixed_robot_body: false   # Whether the robot body is fixed realtive to workd frame
     use_sim_time: true # Use simulation time
+    foot_force_positive_z_only: true # true makes foot contact force publish only a +Z component (magnitude of contact)
     

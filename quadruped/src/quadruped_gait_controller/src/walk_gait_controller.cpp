@@ -178,6 +178,9 @@ private:
 		dqp_ref.setZero();
 		leg_constraint.setConstant(1.0);
 
+		// dqb_ref[0] = forwardStepLength / (stepDuration) * 1000.0;
+		// dqb_ref[1] = sideStepLength / (stepDuration) * 1000.0;
+
 		dqb_ref[0] = forwardStepLength / (stepDuration) * 1000.0;
 		dqb_ref[1] = sideStepLength / (stepDuration) * 1000.0;
 
@@ -224,6 +227,9 @@ private:
 			dqb_ref.setZero();
 			dqp_ref.setZero();
 		}
+
+		dqb_ref.setZero();
+		dqp_ref.setZero();	
 
 		for (size_t i = 0; i < 6; ++i)
 		{

@@ -126,6 +126,7 @@ public:
 		gv = Eigen::VectorXd::Zero(robot->getDOF());
 		gf = Eigen::VectorXd::Zero(robot->getDOF());
 		// damping = Eigen::VectorXd::Zero(robot->getDOF());
+		non_linearities = Eigen::VectorXd::Zero(robot->getDOF());
 
 		q_ref = joint_pos;
 		qd_ref = Eigen::VectorXd::Zero(N_joints);
@@ -240,6 +241,9 @@ private:
 		gv = robot->getGeneralizedVelocity().e();
 		gf = robot->getGeneralizedForce().e();
 
+		non_linearities = robot->getNonlinearities(world.getGravity()).e();
+		Eigen::MatrixXd M = robot->getMassMatrix().e();
+
 		// Get Centre of Mass (COM) position and update visual sphere
 		auto com = robot->getCOM();
 		comSphere->setPosition(com[0], com[1], com[2]);
@@ -265,6 +269,12 @@ private:
 		// Fill odometry message from generalized coordinates and velocities
 		odom_msg_.header.stamp = stamp;
 
+		Eigen::VectorXd qdd_des = Eigen::VectorXd::Zero(dof);
+		Eigen::VectorXd tau_comp_raisim = M * qdd_des + non_linearities;
+
+		std::cout << "non_linearities =\n" << tau_comp_raisim << std::endl;
+		std::cout << "calculated torque =\n" << tau_comp << std::endl;
+
 		// Initialize torque vector
 		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
 
@@ -274,8 +284,8 @@ private:
 			for (int i = 0; i < dof; ++i)
 			{
 				// PD Control Law
-				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
-				tau[i] = std::clamp(tau[i], -60.0, 60.0);
+				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp_raisim[i];
+				// tau[i] = std::clamp(tau[i], -60.0, 60.0);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
@@ -291,8 +301,8 @@ private:
 				// PD Control Law
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
-				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
-				tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
+				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp_raisim[i+6];
+				// tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i + 7];
@@ -520,7 +530,7 @@ private:
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
-	Eigen::VectorXd gc, gv, gf, damping, init_state;
+	Eigen::VectorXd gc, gv, gf, damping, init_state, non_linearities;
 	Eigen::VectorXd q_ref, qd_ref, tau_comp;
 
 	// Declare ROS2 publishers, sibscribers and timers

@@ -282,9 +282,10 @@ private:
 
 		for (int i = 0; i < 12; ++i)
 		{
-			control_effort.position[i] = 0.0;
-			control_effort.velocity[i] = 0.0;
-			control_effort.effort[i] = qT_ref(i) + qT_comp(i);
+			control_effort.position[i] = qJ_ref[i];
+			control_effort.velocity[i] = dqJ_ref[i];
+			// control_effort.effort[i] = qT_ref(i) + qT_comp(i);
+			control_effort.effort[i] = qT_ref(i);
 		}
 
 		// Publish the control effort for the desired joint states

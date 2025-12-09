@@ -127,6 +127,16 @@ public:
 		gf = Eigen::VectorXd::Zero(robot->getDOF());
 		// damping = Eigen::VectorXd::Zero(robot->getDOF());
 
+		dc = Eigen::VectorXd::Zero(robot->getGeneralizedCoordinateDim());
+		dv = Eigen::VectorXd::Zero(robot->getDOF());
+
+		Eigen::VectorXd jointPgain(robot->getDOF()), jointDgain(robot->getDOF());
+		jointPgain.tail(12).setConstant(5000.0);
+		jointDgain.tail(12).setConstant(10.0);
+		robot->setPdGains(jointPgain, jointDgain);
+    	robot->setPdTarget(init_state, gv);
+		
+
 		q_ref = joint_pos;
 		qd_ref = Eigen::VectorXd::Zero(N_joints);
 		tau_comp = Eigen::VectorXd::Zero(N_joints);
@@ -274,8 +284,14 @@ private:
 			for (int i = 0; i < dof; ++i)
 			{
 				// PD Control Law
-				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
-				tau[i] = std::clamp(tau[i], -60.0, 60.0);
+				// tau[i] = p_gain[i] * (q_ref[i] - gc[i]) e+ d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
+				// tau[i] = std::clamp(tau[i], -60.0, 60.0);
+				tau[i] = tau_comp[i];
+
+				dc[i] = q_ref[i];
+				dv[i] = qd_ref[i];
+
+				robot->setPdTarget(dc, dv);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
@@ -291,8 +307,14 @@ private:
 				// PD Control Law
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
-				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
-				tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
+				// tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
+				// tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
+
+				tau[i+6] = tau_comp[i];
+				dc[i+7] = q_ref[i];
+				dv[i+6] = qd_ref[i];
+				
+				robot->setPdTarget(dc, dv);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i + 7];
@@ -316,8 +338,13 @@ private:
 			odom_msg_.twist.twist.angular.z = gv[5];
 		}
 
+
+
+
+
+
 		// Send forces to the simulation
-		robot->setGeneralizedForce(tau);
+		// robot->setGeneralizedForce(tau);
 
 		// Publish joint states
 		joint_state_pub->publish(js);
@@ -520,7 +547,7 @@ private:
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
-	Eigen::VectorXd gc, gv, gf, damping, init_state;
+	Eigen::VectorXd gc, gv, gf, damping, init_state, dc, dv;
 	Eigen::VectorXd q_ref, qd_ref, tau_comp;
 
 	// Declare ROS2 publishers, sibscribers and timers

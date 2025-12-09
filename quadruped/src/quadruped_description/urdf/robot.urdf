@@ -6,7 +6,8 @@
   <link name="body">
     <inertial>
       <origin xyz="0.0 0.0 25.086e-3" rpy="0 0 0"/>
-      <mass value="17.122"/>
+      <!-- <mass value="17.122"/> -->
+      <mass value="32.122"/>
       <inertia ixx="190521.10058e-6" ixy="0.0" ixz="-0.0" iyy="588124.01325e-6" iyz="0.0" izz="769095.07872e-6"/>
     </inertial>
     <!-- Part pelvisa -->

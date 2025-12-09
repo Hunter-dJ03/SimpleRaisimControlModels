@@ -125,6 +125,9 @@ public:
 		gc = Eigen::VectorXd::Zero(robot->getGeneralizedCoordinateDim());
 		gv = Eigen::VectorXd::Zero(robot->getDOF());
 		gf = Eigen::VectorXd::Zero(robot->getDOF());
+		tau = Eigen::VectorXd::Zero(robot->getDOF());
+		torqueFromInverseDynamics = Eigen::VectorXd::Zero(robot->getDOF());
+
 		// damping = Eigen::VectorXd::Zero(robot->getDOF());
 		non_linearities = Eigen::VectorXd::Zero(robot->getDOF());
 
@@ -136,6 +139,8 @@ public:
 		robot->setGeneralizedCoordinate(init_state);
 		robot->setGeneralizedVelocity(gv);
 		robot->setGeneralizedForce(gf);
+
+		robot->setComputeInverseDynamics(true);
 
 		// CoM Ball Display
 		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1, 0, 0, 1);
@@ -276,7 +281,7 @@ private:
 		std::cout << "calculated torque =\n" << tau_comp << std::endl;
 
 		// Initialize torque vector
-		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
+		tau.setZero();
 
 		if (fixed_robot_body)
 		{
@@ -343,12 +348,14 @@ private:
 			quadruped_interfaces::msg::FootContactForces contact_msg;
 			contact_msg.header.stamp = stamp;
 			contact_msg.header.frame_id = "world";
+			static constexpr std::array<size_t, 4> publish_order{{0, 2, 3, 1}}; // FL, BL, BR, FR
 			contact_msg.forces.resize(foot_link_names_.size());
 			for (size_t i = 0; i < foot_link_names_.size(); ++i)
 			{
-				contact_msg.forces[i].x = latest_foot_contact_forces_[i].x();
-				contact_msg.forces[i].y = latest_foot_contact_forces_[i].y();
-				contact_msg.forces[i].z = latest_foot_contact_forces_[i].z();
+				const size_t src = publish_order[i];
+				contact_msg.forces[i].x = latest_foot_contact_forces_[src].x();
+				contact_msg.forces[i].y = latest_foot_contact_forces_[src].y();
+				contact_msg.forces[i].z = latest_foot_contact_forces_[src].z();
 			}
 			foot_contact_pub_->publish(contact_msg);
 		}
@@ -530,7 +537,8 @@ private:
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
-	Eigen::VectorXd gc, gv, gf, damping, init_state, non_linearities;
+	Eigen::VectorXd gc, gv, gf, tau, damping, init_state, non_linearities;
+	Eigen::VectorXd torqueFromInverseDynamics;
 	Eigen::VectorXd q_ref, qd_ref, tau_comp;
 
 	// Declare ROS2 publishers, sibscribers and timers

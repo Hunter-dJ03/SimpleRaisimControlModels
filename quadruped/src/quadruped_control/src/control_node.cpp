@@ -4,6 +4,7 @@
 #include "quadruped_interfaces/msg/endpoint.hpp"
 #include "quadruped_interfaces/msg/foot_states.hpp"
 #include "quadruped_interfaces/msg/full_body_control_command.hpp"
+#include "quadruped_interfaces/msg/foot_contact_forces.hpp"
 #include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
 
 #include <Eigen/Dense>
@@ -91,6 +92,10 @@ public:
 		qJ_prev = qJ;
 		qJ_ref_prev = qJ; // Set reference and previous values to initial positions
 		trajectory_q_des_ = qJ;
+		foot_contact_forces_ = Eigen::VectorXd::Zero(12);
+		body_to_joint0_rotation_ << 0.0, 0.0, 1.0,
+			0.0, -1.0, 0.0,
+			1.0, 0.0, 0.0;
 
 		qp = fullForwardKinematics();
 		qp_ref = qp;
@@ -161,6 +166,10 @@ public:
 		full_body_command_sub_ = this->create_subscription<quadruped_interfaces::msg::FullBodyControlCommand>(
 			"full_body_control_command", 10,
 			std::bind(&QuadrupedLegController::fullBodyCommandCallback, this, std::placeholders::_1));
+
+		foot_force_sub_ = this->create_subscription<quadruped_interfaces::msg::FootContactForces>(
+			"foot_contact_forces", 10,
+			std::bind(&QuadrupedLegController::footForceCallback, this, std::placeholders::_1));
 
 		// Set up publishers for desired control effort
 		desired_control_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_desired_control", 10);
@@ -344,6 +353,28 @@ private:
 	void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 	{
 		latest_odom_ = *msg;
+	}
+
+	void footForceCallback(const quadruped_interfaces::msg::FootContactForces::SharedPtr msg)
+	{
+		if (foot_contact_forces_.size() != 12)
+		{
+			foot_contact_forces_ = Eigen::VectorXd::Zero(12);
+		}
+
+		return;
+
+		for (size_t leg = 0; leg < 4; ++leg)
+		{
+			Eigen::Vector3d force = Eigen::Vector3d::Zero();
+			if (leg < msg->forces.size())
+			{
+				force.x() = msg->forces[leg].x;
+				force.y() = msg->forces[leg].y;
+				force.z() = msg->forces[leg].z;
+			}
+			foot_contact_forces_.segment<3>(3 * leg) = force;
+		}
 	}
 
 	/*
@@ -618,6 +649,22 @@ private:
 		return J;
 	}
 
+	/*
+	 * Rotation from world frame to body frame computed from measured roll-pitch-yaw.
+	 * The base-to-world orientation is obtained from odometry and then inverted.
+	 */
+	Eigen::Matrix3d worldToBodyRotation() const
+	{
+		const double roll = qb[3];
+		const double pitch = qb[4];
+		const double yaw = qb[5];
+		const Eigen::AngleAxisd rollAngle(roll, Eigen::Vector3d::UnitX());
+		const Eigen::AngleAxisd pitchAngle(pitch, Eigen::Vector3d::UnitY());
+		const Eigen::AngleAxisd yawAngle(yaw, Eigen::Vector3d::UnitZ());
+		const Eigen::Matrix3d body_to_world = (yawAngle * pitchAngle * rollAngle).toRotationMatrix();
+		return body_to_world.transpose(); // world -> body
+	}
+
 	Eigen::Matrix<double, 12, 18> feetPositionJacobian(const std::array<LegKinematics, 4> &legs) const
 	{
 		Eigen::Matrix<double, 12, 18> Jp;
@@ -759,6 +806,7 @@ private:
 								const int leg)
 	{
 		assert(q.size() == 3 && qd.size() == 3 && qdd.size() == 3);
+		(void)g;
 
 		// Link geometry
 		double l1 = link_lengths[0];
@@ -806,9 +854,34 @@ private:
 
 		std::array<Eigen::Vector3d, 4> w{};
 		std::array<Eigen::Vector3d, 4> wd{};
-		std::array<Eigen::Vector3d, 4> v{};
-		std::array<Eigen::Vector3d, 4> vcom{};
-		v[0] << g, 0.0, 0.0;
+		std::array<Eigen::Vector3d, 4> vd{};
+		std::array<Eigen::Vector3d, 4> vdcom{};
+
+		const double control_dt = control_time_step_ms * 1e-3;
+		const Eigen::Matrix3d world_to_body = worldToBodyRotation();
+		const Eigen::Matrix3d body_to_world = world_to_body.transpose();
+		const Eigen::Matrix3d world_to_joint = body_to_joint0_rotation_.transpose() * world_to_body;
+		const Eigen::Vector3d base_linear_world = dqb.segment<3>(0);
+		const Eigen::Vector3d base_angular_world = dqb.segment<3>(3);
+		const Eigen::Vector3d base_linear_velocity = world_to_joint * base_linear_world;
+		const Eigen::Vector3d base_angular_velocity = world_to_joint * base_angular_world;
+		Eigen::Vector3d base_linear_acceleration = Eigen::Vector3d::Zero();
+		Eigen::Vector3d base_angular_acceleration = Eigen::Vector3d::Zero();
+
+		if (control_dt > 1e-9)
+		{
+			base_linear_acceleration = (base_linear_velocity - base_linear_velocity_prev_) / control_dt;
+			base_angular_acceleration = (base_angular_velocity - base_angular_velocity_prev_) / control_dt;
+		}
+
+		base_linear_velocity_prev_ = base_linear_velocity;
+		base_angular_velocity_prev_ = base_angular_velocity;
+
+		const Eigen::Vector3d gravity_joint = world_to_joint * Eigen::Vector3d(0.0, 0.0, gravity);
+
+		w[0] = base_angular_velocity;
+		wd[0] = base_angular_acceleration;
+		vd[0] = gravity_joint + base_linear_acceleration;
 
 		for (int idx = 1; idx <= 3; ++idx)
 		{
@@ -823,12 +896,28 @@ private:
 
 			w[idx] = Rt * (w[idx - 1] + qd_i * z0);
 			wd[idx] = Rt * (wd[idx - 1] + qdd_i * z0 + qd_i * w[idx - 1].cross(z0));
-			v[idx] = Rt * (v[idx - 1] + wd[idx - 1].cross(o_i) + w[idx - 1].cross(w[idx - 1].cross(o_i)));
-			vcom[idx] = v[idx] + wd[idx].cross(p_com_i) + w[idx].cross(w[idx].cross(p_com_i));
+			vd[idx] = Rt * (vd[idx - 1] + wd[idx - 1].cross(o_i) + w[idx - 1].cross(w[idx - 1].cross(o_i)));
+			vdcom[idx] = vd[idx] + wd[idx].cross(p_com_i) + w[idx].cross(w[idx].cross(p_com_i));
 		}
 
 		std::array<Eigen::Vector3d, 4> f{};
 		std::array<Eigen::Vector3d, 4> n{};
+		const Eigen::Index contact_size = foot_contact_forces_.size();
+		if (contact_size >= 12)
+		{
+			const Eigen::Index offset = static_cast<Eigen::Index>(3 * leg);
+			const Eigen::Vector3d contact_world = foot_contact_forces_.segment<3>(offset);
+			const Eigen::Vector3d contact_joint = world_to_joint * contact_world;
+			f[3] = contact_joint;
+
+			// Use forward kinematics to determine the knee->foot vector in the joint frame.
+			const LegKinematics legKin = computeLegForwardKinematics(q, leg);
+			const Eigen::Vector3d r_knee_body = legKin.r3;
+			const Eigen::Vector3d r_foot_body = legKin.rp;
+			const Eigen::Vector3d r_world = body_to_world * (r_foot_body - r_knee_body);
+			const Eigen::Vector3d r_joint = world_to_joint * r_world;
+			n[3] = r_joint.cross(contact_joint);
+		}
 
 		Eigen::VectorXd tau(3);
 
@@ -839,7 +928,7 @@ private:
 			const Eigen::Vector3d f_next_in_curr = Rnext * f[idx];
 			const Eigen::Vector3d n_next_in_curr = Rnext * n[idx];
 
-			f[link] = f_next_in_curr + mass[link + 1] * vcom[idx];
+			f[link] = f_next_in_curr + mass[link + 1] * vdcom[idx];
 			n[link] = Il[link] * wd[idx] + w[idx].cross(Il[link] * w[idx]) - f[link].cross(pcoml[link]) + n_next_in_curr + f_next_in_curr.cross(pcoml[link] - oc[idx]);
 			tau(link) = n[link].dot(z0);
 		}
@@ -852,9 +941,9 @@ private:
 		Eigen::VectorXd tau(12);
 
 		for (size_t leg = 0; leg < 4; ++leg)
-		{
-			tau.segment<3>(3 * leg) = NE_Dynamics(qJ.segment<3>(3 * leg), dqJ.segment<3>(3 * leg), zero3, -gravity, leg);
-		}
+	 {
+		 tau.segment<3>(3 * leg) = NE_Dynamics(qJ.segment<3>(3 * leg), dqJ.segment<3>(3 * leg), zero3, -gravity, leg);
+	 }
 
 		return tau;
 	}
@@ -879,6 +968,7 @@ private:
 
 	rclcpp::Subscription<quadruped_interfaces::msg::FullBodyControlCommand>::SharedPtr full_body_command_sub_;
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+	rclcpp::Subscription<quadruped_interfaces::msg::FootContactForces>::SharedPtr foot_force_sub_;
 
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr desired_control_pub_;
 	rclcpp::Publisher<quadruped_interfaces::msg::Endpoint>::SharedPtr endpoint_publisher_;
@@ -913,9 +1003,13 @@ private:
 	Eigen::VectorXd qJ_ref_prev;  // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 	Eigen::VectorXd dqJ_ref_prev; // Previous reference joint velocitys (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
 
-	Eigen::VectorXd qT_comp; // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd qT_comp;									 // Reference joint torques (l1_hipAA, l1_hipFE, l1_knee, l2_hipAA, ...)
+	Eigen::VectorXd foot_contact_forces_;						 // Latest foot contact forces (FL, BL, BR, FR order)
 	Eigen::VectorXd trajectory_q_des_;
 	bool trajectory_initialized_ = false;
+	Eigen::Vector3d base_linear_velocity_prev_ = Eigen::Vector3d::Zero();
+	Eigen::Vector3d base_angular_velocity_prev_ = Eigen::Vector3d::Zero();
+	Eigen::Matrix3d body_to_joint0_rotation_ = Eigen::Matrix3d::Identity();
 
 	std::vector<bool> leg_constraint; // Inclusion of leg in constraint matrix (1 = included, 0 = not)
 

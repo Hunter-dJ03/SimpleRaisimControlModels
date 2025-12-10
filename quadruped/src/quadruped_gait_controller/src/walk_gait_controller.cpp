@@ -228,8 +228,8 @@ private:
 			dqp_ref.setZero();
 		}
 
-		dqb_ref.setZero();
-		dqp_ref.setZero();	
+		// dqb_ref.setZero();
+		// dqp_ref.setZero();	
 
 		for (size_t i = 0; i < 6; ++i)
 		{

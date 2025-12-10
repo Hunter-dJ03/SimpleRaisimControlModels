@@ -34,7 +34,7 @@ public:
 		init_pos = this->declare_parameter<std::vector<double>>("joint_initial_positions", std::vector<double>{});
 		link_lengths = this->declare_parameter<std::vector<double>>("link_lengths", std::vector<double>{});
 
-		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {5000.0, 5000.0, 7000.0});
+		auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {20.0, 20.0, 20.0});
 		// auto kp_param = this->declare_parameter<std::vector<double>>("cartesian_kp", {0.0, 0.0, 0.0});
 		if (kp_param.size() == 3)
 		{
@@ -46,7 +46,7 @@ public:
 			RCLCPP_WARN(this->get_logger(), "Parameter cartesian_kp must have 3 entries. Using defaults.");
 		}
 
-		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {20.0, 20.0, 35.0});
+		auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {1.0, 1.0, 1.0});
 		// auto kd_param = this->declare_parameter<std::vector<double>>("cartesian_kd", {0.0, 0.0, 0.0});
 
 		if (kd_param.size() == 3)
@@ -289,11 +289,26 @@ private:
 
 		qT_comp = fullNEDynamics();
 
+		for (int leg = 0; leg < 4; ++leg)
+		{
+			const int qp_idx = 3 * leg;
+			const int dqp_idx = 6 * leg;
+
+			const Eigen::Vector3d desired_pos = qp_ref.segment<3>(qp_idx);
+			const Eigen::Vector3d q_leg_ref = inverseKinematics(desired_pos, leg);
+			qJ_ref.segment<3>(qp_idx) = q_leg_ref;
+
+			const Eigen::Matrix3d J_leg_linear = computeJacobian(q_leg_ref, leg).topRows(3);
+			const Eigen::Vector3d desired_vel = dqp_ref.segment<3>(dqp_idx);
+			dqJ_ref.segment<3>(qp_idx).noalias() = J_leg_linear.inverse() * desired_vel;
+		}
+
 		for (int i = 0; i < 12; ++i)
 		{
-			control_effort.position[i] = 0.0;
-			control_effort.velocity[i] = 0.0;
-			control_effort.effort[i] = qT_ref(i) + qT_comp(i);
+			control_effort.position[i] = qJ_ref(i);
+			control_effort.velocity[i] = dqJ_ref(i);
+			// control_effort.effort[i] = qT_ref(i) + qT_comp(i);
+			control_effort.effort[i] = qT_ref(i);
 		}
 
 		// Publish the control effort for the desired joint states

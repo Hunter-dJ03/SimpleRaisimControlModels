@@ -274,11 +274,31 @@ private:
 		// Fill odometry message from generalized coordinates and velocities
 		odom_msg_.header.stamp = stamp;
 
-		Eigen::VectorXd qdd_des = Eigen::VectorXd::Zero(dof);
-		Eigen::VectorXd tau_comp_raisim = M * qdd_des + non_linearities;
+		// Eigen::VectorXd qdd_des = Eigen::VectorXd::Zero(dof);
+		// Eigen::VectorXd tau_comp_raisim = M * qdd_des + non_linearities;
+		//
+		// std::cout << "non_linearities =\n" << tau_comp_raisim << std::endl;
+		// std::cout << "calculated torque =\n" << tau_comp << std::endl;
 
-		std::cout << "non_linearities =\n" << tau_comp_raisim << std::endl;
-		std::cout << "calculated torque =\n" << tau_comp << std::endl;
+		Eigen::VectorXd tau_comp_raisim = Eigen::VectorXd::Zero(dof);
+		if (fixed_robot_body)
+		{
+			for (int j = 0; j < dof; ++j)
+			{
+				const Eigen::Vector3d axis = robot->getJointAxis(j).e();
+				tau_comp_raisim[j] = robot->getTorqueAtJointInWorldFrame(j).e().dot(axis);
+			}
+		}
+		else
+		{
+			tau_comp_raisim.segment(0, 3) = robot->getForceAtJointInWorldFrame(0).e();
+			tau_comp_raisim.segment(3, 3) = robot->getTorqueAtJointInWorldFrame(0).e();
+			for (int j = 1; j < dof - 5; ++j)
+			{
+				const Eigen::Vector3d axis = robot->getJointAxis(j).e();
+				tau_comp_raisim(j + 5) = robot->getTorqueAtJointInWorldFrame(j).e().dot(axis);
+			}
+		}
 
 		// Initialize torque vector
 		tau.setZero();
@@ -289,7 +309,7 @@ private:
 			for (int i = 0; i < dof; ++i)
 			{
 				// PD Control Law
-				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp_raisim[i];
+				tau[i] = tau_comp_raisim[i] + tau_comp[i];
 				// tau[i] = std::clamp(tau[i], -60.0, 60.0);
 
 				// Add each joint to the jointstate message
@@ -306,7 +326,7 @@ private:
 				// PD Control Law
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
-				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp_raisim[i+6];
+				tau[i + 6] = tau_comp_raisim[i+6] + tau_comp[i];
 				// tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
 
 				// Add each joint to the jointstate message

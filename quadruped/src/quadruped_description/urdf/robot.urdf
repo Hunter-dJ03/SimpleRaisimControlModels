@@ -7,7 +7,7 @@
     <inertial>
       <origin xyz="0.0 0.0 25.086e-3" rpy="0 0 0"/>
       <!-- <mass value="17.122"/> -->
-      <mass value="32.122"/>
+      <mass value="67.122"/>
       <inertia ixx="190521.10058e-6" ixy="0.0" ixz="-0.0" iyy="588124.01325e-6" iyz="0.0" izz="769095.07872e-6"/>
     </inertial>
     <!-- Part pelvisa -->
@@ -200,7 +200,7 @@
     <parent link="femurl"/>
     <child link="FL_tibia"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
+    <limit effort="150" velocity="50" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from coxab to femurl -->
@@ -209,7 +209,7 @@
     <parent link="coxab"/>
     <child link="femurl"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-3.49065850399" upper="0.34906585039" />
+    <limit effort="150" velocity="50" lower="-3.49065850399" upper="0.34906585039" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from body to coxab -->
@@ -218,7 +218,7 @@
     <parent link="body"/>
     <child link="coxab"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-0.78539816339" upper="0.78539816339" />
+    <limit effort="150" velocity="50" lower="-0.78539816339" upper="0.78539816339" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Link coxa2 -->
@@ -323,7 +323,7 @@
     <parent link="femurl_2"/>
     <child link="BL_tibia"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
+    <limit effort="150" velocity="50" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from coxaa to femurl_2 -->
@@ -332,7 +332,7 @@
     <parent link="coxaa"/>
     <child link="femurl_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-3.49065850399" upper="0.34906585039" />
+    <limit effort="150" velocity="50" lower="-3.49065850399" upper="0.34906585039" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from body to coxaa -->
@@ -341,7 +341,7 @@
     <parent link="body"/>
     <child link="coxaa"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-0.78539816339" upper="0.78539816339" />
+    <limit effort="150" velocity="50" lower="-0.78539816339" upper="0.78539816339" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Link coxa3 -->
@@ -448,7 +448,7 @@
     <parent link="femurr"/>
     <child link="BR_tibia"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
+    <limit effort="150" velocity="50" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from coxab_2 to femurr -->
@@ -457,7 +457,7 @@
     <parent link="coxab_2"/>
     <child link="femurr"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-3.49065850399" upper="0.34906585039" />
+    <limit effort="150" velocity="50" lower="-3.49065850399" upper="0.34906585039" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from body to coxab_2 -->
@@ -466,7 +466,7 @@
     <parent link="body"/>
     <child link="coxab_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-0.78539816339" upper="0.78539816339" />
+    <limit effort="150" velocity="50" lower="-0.78539816339" upper="0.78539816339" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Link coxa4 -->
@@ -571,7 +571,7 @@
     <parent link="femurr_2"/>
     <child link="FR_tibia"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-1.15062047432" upper="0.97399029168" />
+    <limit effort="150" velocity="50" lower="-1.15062047432" upper="0.97399029168" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from coxaa_2 to femurr_2 -->
@@ -580,7 +580,7 @@
     <parent link="coxaa_2"/>
     <child link="femurr_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-3.49065850399" upper="0.34906585039" />
+    <limit effort="150" velocity="50" lower="-3.49065850399" upper="0.34906585039" />
     <dynamics damping="3.0" friction="50" />
   </joint>
   <!-- Joint from body to coxaa_2 -->
@@ -589,7 +589,7 @@
     <parent link="body"/>
     <child link="coxaa_2"/>
     <axis xyz="0 0 1"/>
-    <limit effort="1000" velocity="1000" lower="-0.78539816339" upper="0.78539816339" />
+    <limit effort="150" velocity="50" lower="-0.78539816339" upper="0.78539816339" />
     <dynamics damping="3.0" friction="50" />
   </joint>
 </robot>

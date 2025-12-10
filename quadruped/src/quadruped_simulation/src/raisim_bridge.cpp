@@ -128,6 +128,19 @@ public:
 		tau = Eigen::VectorXd::Zero(robot->getDOF());
 		torqueFromInverseDynamics = Eigen::VectorXd::Zero(robot->getDOF());
 
+		dc = Eigen::VectorXd::Zero(robot->getGeneralizedCoordinateDim());
+		dv = Eigen::VectorXd::Zero(robot->getDOF());
+
+		Eigen::VectorXd jointPgain(robot->getDOF()), jointDgain(robot->getDOF());
+		// jointPgain.tail(12).setConstant(1000.0);
+		// jointDgain.tail(12).setConstant(25.0);
+
+		jointPgain.tail(12).setConstant(400.00);
+		jointDgain.tail(12).setConstant(20.0);
+
+		robot->setPdGains(jointPgain, jointDgain);
+    	robot->setPdTarget(init_state, gv);
+
 		// damping = Eigen::VectorXd::Zero(robot->getDOF());
 		non_linearities = Eigen::VectorXd::Zero(robot->getDOF());
 
@@ -309,8 +322,13 @@ private:
 			for (int i = 0; i < dof; ++i)
 			{
 				// PD Control Law
-				tau[i] = tau_comp_raisim[i] + tau_comp[i];
+				tau[i] = tau_comp_raisim[i];
 				// tau[i] = std::clamp(tau[i], -60.0, 60.0);
+
+				dc[i] = q_ref[i];
+				dv[i] = qd_ref[i];
+
+				robot->setPdTarget(dc, dv);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
@@ -326,8 +344,13 @@ private:
 				// PD Control Law
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
-				tau[i + 6] = tau_comp_raisim[i+6] + tau_comp[i];
-				// tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
+				tau[i + 6] = tau_comp_raisim[i+6];
+				tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
+
+				dc[i+7] = q_ref[i];
+				dv[i+6] = qd_ref[i];
+
+				robot->setPdTarget(dc, dv);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i + 7];
@@ -557,7 +580,7 @@ private:
 	raisim::RaisimServer server{&world};
 	raisim::ArticulatedSystem *robot;
 	raisim::Visuals *comSphere;
-	Eigen::VectorXd gc, gv, gf, tau, damping, init_state, non_linearities;
+	Eigen::VectorXd gc, gv, gf, tau, damping, init_state, non_linearities, dc, dv;
 	Eigen::VectorXd torqueFromInverseDynamics;
 	Eigen::VectorXd q_ref, qd_ref, tau_comp;
 

@@ -2,13 +2,18 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <builtin_interfaces/msg/time.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 #include <raisim/World.hpp>
 #include <raisim/RaisimServer.hpp>
 
+#include <quadruped_interfaces/srv/set_generalized_coordinate.hpp>
+
 #include <chrono>
 #include <thread>
 #include <Eigen/Dense>
+#include <mutex>
+#include <atomic>
 
 class RaisimBridge : public rclcpp::Node
 {
@@ -63,10 +68,14 @@ public:
 		dt_ = pd_time_step_ms * 1e-3; // seconds
 		world.setTimeStep(dt_);
 
+		// Set default material properties (restitution, friction, adhesion)
+		world.setDefaultMaterial(1.0, 0.2, 0.0);
+
 		clock_pub_ = this->create_publisher<rosgraph_msgs::msg::Clock>(
 			"/clock", rclcpp::QoS(10).best_effort());
 
-		[[maybe_unused]] auto ground = world.addGround(0);
+		auto ground = world.addGround(0);
+		ground->setAppearance("hidden");
 
 		// Variable Gravity option
 		// world.setGravity(Eigen::Vector3d(0, 0, 0));
@@ -124,6 +133,8 @@ public:
 		// CoM Ball Display
 		comSphere = server.addVisualSphere("viz_sphere", 0.01, 1, 0, 0, 1);
 
+		server.setMap("dune");
+
 		// Setup raisim server
 		server.launchServer(8080);
 
@@ -136,7 +147,7 @@ public:
 
 		RCLCPP_INFO(this->get_logger(), "Server Connected");
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+		std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
 		RCLCPP_INFO(this->get_logger(), "RaisimBridge Node Initialised");
 
@@ -145,6 +156,10 @@ public:
 
 		// Create Publisher for robot joint states
 		joint_state_pub = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
+		odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", 10);
+		odom_msg_.header.frame_id = "odom";
+		odom_msg_.child_frame_id = "base_link";
+		odom_msg_.pose.pose.orientation.w = 1.0;
 
 		// Create subscription to control node topic for joint effort commands
 		desired_cmd_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
@@ -155,6 +170,10 @@ public:
 		timer_ = this->create_wall_timer(
 			std::chrono::duration<double>(dt_),
 			std::bind(&RaisimBridge::update, this));
+
+		// set_gc_srv_ = this->create_service<quadruped_interfaces::srv::SetGeneralizedCoordinate>(
+		// 	"set_generalized_coordinate",
+		// 	std::bind(&RaisimBridge::setGcCallback, this, std::placeholders::_1, std::placeholders::_2));
 
 		// Set start time checking dimulation time displacement
 		startTime = std::chrono::high_resolution_clock::now();
@@ -203,7 +222,11 @@ private:
 	 */
 	void update()
 	{
+		// server.integrateWorldThreadSafe();
+		// return;
 		// RCLCPP_DEBUG(this->get_logger(), "Received joint effort command");
+		// server.integrateWorldThreadSafe();
+		// return;
 
 		// Update internal state vectors
 		gc = robot->getGeneralizedCoordinate().e();
@@ -232,6 +255,9 @@ private:
 		js.velocity.resize(dof);
 		js.effort.resize(dof);
 
+		// Fill odometry message from generalized coordinates and velocities
+		odom_msg_.header.stamp = stamp;
+
 		// Initialize torque vector
 		Eigen::VectorXd tau = Eigen::VectorXd::Zero(dof);
 
@@ -242,6 +268,7 @@ private:
 			{
 				// PD Control Law
 				tau[i] = p_gain[i] * (q_ref[i] - gc[i]) + d_gain[i] * (qd_ref[i] - gv[i]) + tau_comp[i];
+				tau[i] = std::clamp(tau[i], -60.0, 60.0);
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i];
@@ -258,12 +285,28 @@ private:
 				// Note the offset in gc and gv for the floating base
 				// gc has 7 offset (3 pos, 4 orient [quaternion]), gv has 6 offset (3 linear, 3 angular)
 				tau[i + 6] = p_gain[i] * (q_ref[i] - gc[i + 7]) + d_gain[i] * (qd_ref[i] - gv[i + 6]) + tau_comp[i];
+				tau[i + 6] = std::clamp(tau[i + 6], -60.0, 60.0); // Clamp torques to reasonable values
 
 				// Add each joint to the jointstate message
 				js.position[i] = gc[i + 7];
 				js.velocity[i] = gv[i + 6];
 				js.effort[i] = gf[i + 6];
 			}
+
+			odom_msg_.pose.pose.position.x = gc[0];
+			odom_msg_.pose.pose.position.y = gc[1];
+			odom_msg_.pose.pose.position.z = gc[2];
+			odom_msg_.pose.pose.orientation.x = gc[3];
+			odom_msg_.pose.pose.orientation.y = gc[4];
+			odom_msg_.pose.pose.orientation.z = gc[5];
+			odom_msg_.pose.pose.orientation.w = gc[6];
+
+			odom_msg_.twist.twist.linear.x = gv[0];
+			odom_msg_.twist.twist.linear.y = gv[1];
+			odom_msg_.twist.twist.linear.z = gv[2];
+			odom_msg_.twist.twist.angular.x = gv[3];
+			odom_msg_.twist.twist.angular.y = gv[4];
+			odom_msg_.twist.twist.angular.z = gv[5];
 		}
 
 		// Send forces to the simulation
@@ -271,6 +314,7 @@ private:
 
 		// Publish joint states
 		joint_state_pub->publish(js);
+		odom_pub_->publish(odom_msg_);
 
 		// Step simulation
 		server.integrateWorldThreadSafe();
@@ -306,6 +350,44 @@ private:
 		return;
 	}
 
+	// void setGcCallback(
+	// 	const std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Request> req,
+	// 	std::shared_ptr<quadruped_interfaces::srv::SetGeneralizedCoordinate::Response> res)
+	// {
+	// 	const int expected_dim = robot->getGeneralizedCoordinateDim(); // 19 floating, 12 fixed
+	// 	const size_t n_in = req->q.size();
+
+	// 	if (static_cast<int>(n_in) != expected_dim)
+	// 	{
+	// 		res->ok = false;
+	// 		res->message = "Wrong q length. Got " + std::to_string(n_in) +
+	// 					   ", expected " + std::to_string(expected_dim) +
+	// 					   (fixed_robot_body ? " for fixed base" : " for floating base");
+	// 		RCLCPP_WARN(this->get_logger(), "%s", res->message.c_str());
+	// 		return;
+	// 	}
+
+	// 	Eigen::VectorXd target(expected_dim);
+	// 	for (int i = 0; i < expected_dim; ++i)
+	// 		target[i] = req->q[i];
+
+	// 	// No rearrange or normalization. The array is already in Raisim order.
+
+	// 	robot->setGeneralizedCoordinate(target);
+	// 	robot->setGeneralizedVelocity(Eigen::VectorXd::Zero(robot->getDOF()));
+
+	// 	// {
+	// 	// 	std::lock_guard<std::mutex> lock(pending_mutex_);
+	// 	// 	pending_gc_ = target;
+	// 	// 	has_pending_gc_.store(true, std::memory_order_release);
+	// 	// }
+
+	// 	res->ok = true;
+	// 	res->message = "Queued generalized coordinate set.";
+	// 	RCLCPP_INFO(this->get_logger(), "Queued GC of size %d in mode: %s",
+	// 				expected_dim, fixed_robot_body ? "fixed" : "floating");
+	// }
+
 	// Raisim control variables
 	bool shutdown_called_ = false;
 	raisim::World world;
@@ -317,8 +399,11 @@ private:
 
 	// Declare ROS2 publishers, sibscribers and timers
 	rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub;
+	rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
 	rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr desired_cmd_sub_;
 	rclcpp::TimerBase::SharedPtr timer_;
+	// rclcpp::Service<quadruped_interfaces::srv::SetGeneralizedCoordinate>::SharedPtr set_gc_srv_;
+	nav_msgs::msg::Odometry odom_msg_;
 
 	// Declare internal timer variables
 	std::chrono::_V2::system_clock::time_point startTime;
@@ -332,12 +417,12 @@ private:
 	bool fixed_robot_body;
 
 	// PD Control Gains
-	const double p_gain[12] = {1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0, 1200.0};
-	const double d_gain[12] = {10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0};
-	// const double p_gain[12] = {120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0, 120.0};
-	// const double d_gain[12] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
-	// const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-	// const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+	// const double p_gain[12] = {1200.0, 900.0, 600.0, 1200.0, 900.0, 600.0, 1200.0, 900.0, 600.0, 1200.0, 900.0, 600.0};
+	// const double d_gain[12] = {4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
+	// const double p_gain[12] = {400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0, 400.0};
+	// const double d_gain[12] = {10.0, 8.0, 6.0, 10.0, 8.0, 6.0, 10.0, 8.0, 6.0, 10.0, 8.0, 6.0};
+	const double p_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+	const double d_gain[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 };
 
 int main(int argc, char **argv)

@@ -12,6 +12,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 # Raimsim stuffs
 # set(CMAKE_PREFIX_PATH "/home/hunter/Documents/github/importedRepos/raisimLib/raisim/linux")
@@ -27,9 +28,10 @@ include_directories(
 )
 find_package(raisim REQUIRED)
 
+find_package(quadruped_interfaces REQUIRED)                        
 
 add_executable(raisim_bridge src/raisim_bridge.cpp)
-ament_target_dependencies(raisim_bridge rclcpp sensor_msgs std_msgs Eigen3 raisim PythonLibs)
+ament_target_dependencies(raisim_bridge rclcpp sensor_msgs std_msgs nav_msgs Eigen3 raisim PythonLibs quadruped_interfaces)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
